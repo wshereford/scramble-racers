@@ -1,0 +1,8 @@
+# Editor / OS cruft
+.DS_Store
+Thumbs.db
+*.tmp
+*.log
+
+# Local tooling (device-specific preview/launch config)
+.claude/
