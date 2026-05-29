@@ -6,3 +6,4 @@ Thumbs.db
 
 # Local tooling (device-specific preview/launch config)
 .claude/
+server.ps1

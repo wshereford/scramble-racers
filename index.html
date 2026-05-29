@@ -105,7 +105,7 @@
         <div id="escAttrCards"></div>
       </div>
       <div style="flex:1">
-        <div class="slot-title" style="text-align:left">🗺️ Modify <span id="escSecName"></span></div>
+        <div class="slot-title" style="text-align:left">🗺️ Re-theme <span id="escSecName"></span></div>
         <div class="secgrid" id="escSecMap"></div>
         <div id="escModCards"></div>
       </div>
@@ -145,6 +145,125 @@ const TERMINAL = 16;
 const COLORS = ['#e74c3c','#3aa6ff','#2ecc71','#f5c542'];
 const NAMES  = ['You','CPU Rex','CPU Mim','CPU Zoo'];
 
+//////////////////// SOUND ////////////////////
+// Tiny self-contained Web Audio synth — no files, no deps. Browsers block audio
+// until a user gesture, so we lazily create the context on first key/click.
+let actx=null, masterGain=null, soundOn=true;
+function initAudio(){
+  if(actx) return;
+  try{
+    actx = new (window.AudioContext||window.webkitAudioContext)();
+    masterGain = actx.createGain(); masterGain.gain.value = 0.30;
+    masterGain.connect(actx.destination);
+  }catch(e){ actx=null; }
+}
+function resumeAudio(){ if(actx && actx.state==='suspended') actx.resume(); }
+// a single pitched blip, optionally sweeping freq→slideTo
+function tone(freq, dur, type='square', vol=0.5, slideTo=null, delay=0){
+  if(!actx||!soundOn) return;
+  const t0 = actx.currentTime + delay;
+  const o = actx.createOscillator(), g = actx.createGain();
+  o.type = type; o.frequency.setValueAtTime(freq, t0);
+  if(slideTo) o.frequency.exponentialRampToValueAtTime(Math.max(1,slideTo), t0+dur);
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(vol, t0+0.012);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
+  o.connect(g); g.connect(masterGain);
+  o.start(t0); o.stop(t0+dur+0.03);
+}
+// a burst of filtered noise — landings, whooshes, impacts
+function noise(dur, vol=0.4, filterFreq=1000, ftype='lowpass'){
+  if(!actx||!soundOn) return;
+  const t0 = actx.currentTime;
+  const n = Math.floor(actx.sampleRate*dur);
+  const buf = actx.createBuffer(1, n, actx.sampleRate);
+  const d = buf.getChannelData(0);
+  for(let i=0;i<n;i++) d[i] = Math.random()*2-1;
+  const src = actx.createBufferSource(); src.buffer = buf;
+  const f = actx.createBiquadFilter(); f.type=ftype; f.frequency.value=filterFreq;
+  const g = actx.createGain();
+  g.gain.setValueAtTime(vol, t0);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
+  src.connect(f); f.connect(g); g.connect(masterGain);
+  src.start(t0); src.stop(t0+dur);
+}
+const SFX = {
+  jump(){ tone(440,0.12,'triangle',0.4,760); },
+  djump(){ tone(580,0.12,'triangle',0.4,980); },
+  land(){ noise(0.06,0.16,460); },
+  dash(){ tone(280,0.18,'sawtooth',0.4,1000); noise(0.18,0.22,2200,'bandpass'); },
+  blink(){ tone(880,0.1,'sine',0.4,1700); tone(1500,0.08,'sine',0.3,2400,null,0.05); },
+  pound(){ tone(220,0.16,'sawtooth',0.5,55); },
+  poundhit(){ noise(0.16,0.5,300); tone(120,0.2,'square',0.4,50); },
+  superjump(){ tone(240,0.32,'square',0.45,1300); },
+  burner(){ tone(90,0.5,'sawtooth',0.5,180); noise(0.5,0.3,1400,'bandpass'); },
+  flap(){ tone(170,0.06,'sawtooth',0.22,320); },
+  spring(){ tone(480,0.18,'sine',0.45,1150); },
+  bounce(){ tone(620,0.09,'sine',0.32,980); },
+  boost(){ tone(380,0.22,'sawtooth',0.4,1400); },
+  cannon(){ tone(110,0.28,'sawtooth',0.55,38); noise(0.28,0.5,900); },
+  slide(){ noise(0.42,0.3,2600,'bandpass'); tone(320,0.42,'sine',0.18,950); },
+  ring(){ tone(1250,0.07,'sine',0.32,1900); },
+  spikes(){ noise(0.2,0.5,1300,'highpass'); tone(150,0.2,'square',0.3,70); },
+  pit(){ tone(500,0.45,'sine',0.35,90); },
+  count(go){ tone(go?900:520, go?0.3:0.14, 'square', 0.4); },
+  finish(){ tone(523,0.14,'square',0.4); tone(659,0.14,'square',0.4,null,0.12); tone(784,0.28,'square',0.42,null,0.24); },
+  win(){ [523,659,784,1046].forEach((f,i)=>tone(f,0.22,'square',0.42,null,i*0.14)); },
+  select(){ tone(720,0.05,'square',0.28,980); },
+  scramble(){ tone(300,0.09,'square',0.3,520); tone(520,0.1,'square',0.3,820,null,0.07); },
+  slidewhoosh(){ noise(0.1,0.1,2600,'bandpass'); },      // airy hiss while riding the chute
+  wipeout(){ tone(420,0.34,'sawtooth',0.4,70); noise(0.3,0.35,500); }, // sent back to section start
+};
+// play a sound only for the human racer (idx 0) — avoids 4x cacophony
+function sfx(p, name){ if(p.idx===0 && SFX[name]) SFX[name](); }
+
+//////////////////// MUSIC ////////////////////
+// A relaxed, upbeat loop over a I–V–vi–IV progression (4 bars × 8 eighth-notes = 32 steps):
+// soft filtered bass, a singable square lead, and light kick/hat percussion for groove.
+let musicTimer=null, musicStep=0;
+const NOTE = {C2:65.41,F2:87.31,G2:98.0,A2:110.0,
+  G4:392.0,A4:440.0,B4:493.88,C5:523.25,D5:587.33,E5:659.25,F5:698.46,G5:783.99,A5:880.0};
+const M_BASSROOT = [NOTE.C2, NOTE.G2, NOTE.A2, NOTE.F2];           // one chord root per bar
+const _=0, K=NOTE;                                                // _ = rest
+const M_MELODY = [                                                // 32-step lead line
+  K.C5,K.E5,K.G5,K.E5,  K.G5,_,   K.E5,K.C5,    // bar 1  (C)
+  K.D5,K.B4,K.G4,K.B4,  K.D5,_,   K.B4,K.G4,    // bar 2  (G)
+  K.C5,K.E5,K.A5,K.E5,  K.C5,_,   K.A4,K.C5,    // bar 3  (Am)
+  K.A4,K.C5,K.F5,K.C5,  K.A4,_,   K.C5,_        // bar 4  (F)
+];
+function musicVoice(freq,dur,type,vol,filt){
+  if(!actx||!soundOn||!freq) return;
+  const t0=actx.currentTime, o=actx.createOscillator(), g=actx.createGain();
+  o.type=type; o.frequency.setValueAtTime(freq,t0);
+  let last=o;
+  if(filt){ const f=actx.createBiquadFilter(); f.type='lowpass'; f.frequency.value=filt; o.connect(f); last=f; }
+  g.gain.setValueAtTime(0.0001,t0); g.gain.exponentialRampToValueAtTime(vol,t0+0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);
+  last.connect(g); g.connect(masterGain); o.start(t0); o.stop(t0+dur+0.03);
+}
+function musicKick(){
+  if(!actx||!soundOn) return;
+  const t0=actx.currentTime, o=actx.createOscillator(), g=actx.createGain();
+  o.type='sine'; o.frequency.setValueAtTime(150,t0); o.frequency.exponentialRampToValueAtTime(48,t0+0.12);
+  g.gain.setValueAtTime(0.2,t0); g.gain.exponentialRampToValueAtTime(0.0001,t0+0.14);
+  o.connect(g); g.connect(masterGain); o.start(t0); o.stop(t0+0.16);
+}
+function startMusic(){
+  initAudio(); resumeAudio();
+  if(!actx || musicTimer) return;
+  musicStep=0;
+  musicTimer=setInterval(()=>{
+    if(!soundOn) return;
+    const s=musicStep%32, bar=(s/8)|0, inBar=s%8;
+    if(inBar%2===0) musicVoice(M_BASSROOT[bar], 0.24, 'triangle', 0.15, 380);   // bass pulse
+    if(M_MELODY[s])  musicVoice(M_MELODY[s], 0.19, 'square', 0.05, 2000);        // lead
+    if(inBar===0||inBar===4) musicKick();                                        // downbeat kick
+    if(inBar%2===1) noise(0.03,0.04,7000,'highpass');                            // offbeat hat
+    musicStep++;
+  }, 214);   // 8th notes ≈ 140 bpm
+}
+function stopMusic(){ if(musicTimer){ clearInterval(musicTimer); musicTimer=null; } }
+
 //////////////////// OPTION POOLS ////////////////////
 // numeric mods (speed/jump/gravity) multiply; others are flags.
 const POOLS = {
@@ -178,6 +297,7 @@ const POOLS = {
     {name:'Ground Pound',icon:'💥', desc:'SPACE in air: slam straight down', mods:{ability:'pound'}},
     {name:'Blink',       icon:'✨', desc:'SPACE: teleport a short hop forward', mods:{ability:'blink'}},
     {name:'Super Jump',  icon:'🦘', desc:'SPACE on ground: launch sky-high', mods:{ability:'superjump'}},
+    {name:'Afterburner', icon:'🔥', desc:'SPACE: MONSTER forward rocket — but you can\'t steer or brake. Pure risk.', mods:{ability:'burner'}},
   ],
 };
 const SLOT_ORDER = ['helmet','gravity','shoes','ability'];
@@ -205,8 +325,28 @@ const MAP_MODS = [
   // sky stuff — rewards flying builds
   {type:'skyring', name:'Sky Rings',    icon:'💫', desc:'A trail of boost rings up high — only flyers can cash them in', color:'#7fe7ff'},
   {type:'updraft', name:'Updraft',      icon:'🌪️', desc:'A column of rising air that lifts you toward the sky route', color:'#cfeaff'},
+  // RISK/REWARD: a real gap. Fall in → respawn at the start of this section. Jump/fly across to skip it.
+  {type:'pit',    name:'Chasm',         icon:'🕳️', desc:'A gap in the floor! Fall in → back to the section start. Jump or fly across', color:'#1a1320'},
+  // DEADLY: touch it → respawn at the start of this section. Jump or fly over.
+  {type:'lava',   name:'Lava',          icon:'🌋', desc:'Touch it → back to the section start! Jump or fly over', color:'#ff5a1f'},
 ];
 const MAP_BY_TYPE = Object.fromEntries(MAP_MODS.map(m=>[m.type,m]));
+
+//////////////////// SECTION THEMES ////////////////////
+// The track is a row of themed sections. Each theme draws its own backdrop, sets a
+// ground SURFACE, and places its own HAZARD set. Players re-theme sections in the
+// Scramble phase. `objects` are placed as triggers; `surface` is a grounded zone effect.
+const SECTION_THEMES = {
+  grassland: { name:'Grassland', icon:'🌳', sky:['#7fb2ee','#a9d4f5','#dff0ff'], ground:'#6ab04c', edge:'rgba(0,0,0,.12)', prop:'hills',  surface:null,   objects:['boostpad','spring'] },
+  playground:{ name:'Playground',icon:'🛝', sky:['#8fd6ff','#bfe9ff','#eafaff'], ground:'#7ec85a', edge:'rgba(0,0,0,.12)', prop:'play', surface:null, objects:['slide','bounce','spring'] },
+  dungeon:   { name:'Dungeon',   icon:'🏰', sky:['#15121c','#241c2e','#3a2d44'], ground:'#3a3340', edge:'rgba(255,140,60,.25)', prop:'dungeon', surface:null, objects:['lava','spikes'] },
+  ice:       { name:'Ice Cave',  icon:'❄️', sky:['#1f3a5c','#3f6e9e','#9fd0ee'], ground:'#bfe9ff', edge:'rgba(255,255,255,.45)', prop:'ice', surface:'ice',  objects:['spikes','pit'] },
+  sky:       { name:'Sky',       icon:'🌌', sky:['#241a52','#4a3a90','#9a82e0'], ground:'#6a5acd', edge:'rgba(255,255,255,.25)', prop:'stars', surface:null, objects:['updraft','skyring','cannon'] },
+  lab:       { name:'Factory',   icon:'⚙️', sky:['#2a3340','#3f4d5e','#6b7d90'], ground:'#4a5568', edge:'rgba(120,220,255,.3)', prop:'lab',  surface:'boost', objects:['boostpad','cannon','zipline'] },
+};
+const THEME_ORDER = ['grassland','playground','dungeon','ice','sky','lab'];
+function secTheme(i){ return SECTION_THEMES[sections[i].theme] || SECTION_THEMES.grassland; }
+function themeAtX(x){ return secTheme(sectionIndexAt(x)); }
 
 //////////////////// UTIL ////////////////////
 function deal(pool, n=3){
@@ -246,16 +386,18 @@ function newPlayer(i){
     idx:i, name:NAMES[i], color:COLORS[i],
     build:{}, stats:null, points:0,
     x:60 + i*6, y:GROUND_Y-PLAYER_H, vx:0, vy:0,
-    grounded:false, djumpUsed:false, dash:0, abilityCd:0, abilityCdMax:1, abBuffer:0, flapCd:0, climbing:false, ladderCd:0,
+    grounded:false, djumpUsed:false, dash:0, burn:0, pounding:false, onSlide:null, abilityCd:0, abilityCdMax:1, abBuffer:0, flapCd:0, climbing:false, ladderCd:0,
     stun:0, invuln:0, padCd:0,
     fx:'', fxT:0, rocketT:0, finished:false, finishTime:0, place:0, speedJitter:0.96+Math.random()*0.09,
     aiJumpCd:0
   };
 }
 
+// the track starts as a varied row of themed sections; players re-theme them in Scramble
+const START_THEMES = ['grassland','playground','dungeon','ice','sky'];
 function resetMatch(){
   players = [0,1,2,3].map(newPlayer);
-  sections = Array.from({length:NUM_SECTIONS},()=>({mods:[]}));
+  sections = Array.from({length:NUM_SECTIONS},(_,i)=>({theme: START_THEMES[i % START_THEMES.length]}));
   raceNum = 0;
 }
 
@@ -263,6 +405,8 @@ function resetMatch(){
 let solids = [];   // collision rects {x,y,w,h}
 let triggers = []; // {type,x,y,w,h}
 let baseLayout = [];
+let pitSpans = [];   // {x,w} gaps cut into the ground this race
+let slideRamps = []; // {x,w,h} rideable slide ramps this race
 
 function buildBaseLayout(){
   // Ground-level hurdles are kept LOW (<=22px) so even the worst jump build
@@ -287,14 +431,28 @@ function buildBaseLayout(){
 }
 
 function rebuildTrackObjects(){
-  // ground is one big solid; plus base blocks/platforms; plus spring objects from mods
   solids = [];
-  solids.push({x:0, y:GROUND_Y, w:TRACK_LEN, h:CH-GROUND_Y});
-  for(const b of baseLayout) solids.push({x:b.x,y:b.y,w:b.w,h:b.h,kind:b.kind});
   triggers = [];
-  sections.forEach((sec,i)=>{
+  slideRamps = [];
+  // --- CHASMS: real gaps in the floor (fall in → respawn at section start). Ground is laid
+  // as segments AROUND them; width is kept jump-clearable so any build CAN make the jump.
+  pitSpans = [];
+  for(let i=0;i<NUM_SECTIONS;i++){
+    if(secMods(i).includes('pit')){ const cx=i*SEC_W+SEC_W/2; pitSpans.push({x:cx-60, w:120}); }
+  }
+  pitSpans.sort((a,b)=>a.x-b.x);
+  let gx=0;
+  for(const pit of pitSpans){
+    if(pit.x>gx) solids.push({x:gx, y:GROUND_Y, w:pit.x-gx, h:CH-GROUND_Y});
+    gx = pit.x+pit.w;
+  }
+  if(gx<TRACK_LEN) solids.push({x:gx, y:GROUND_Y, w:TRACK_LEN-gx, h:CH-GROUND_Y});
+  // base blocks / floating platforms
+  for(const b of baseLayout) solids.push({x:b.x,y:b.y,w:b.w,h:b.h,kind:b.kind});
+  // hazard objects come from each section's chosen theme
+  for(let i=0;i<NUM_SECTIONS;i++){
     const cx = i*SEC_W + SEC_W/2;
-    sec.mods.forEach((t,k)=>{
+    secMods(i).forEach((t,k)=>{
       const off = (k-0.5)*120; // spread multiple objects in a section
       if(t==='spring'){
         triggers.push({type:'spring', x:cx+off-48, y:GROUND_Y-22, w:96, h:22});
@@ -308,7 +466,11 @@ function rebuildTrackObjects(){
       } else if(t==='boostpad'){
         triggers.push({type:'boostpad', x:cx+off-48, y:GROUND_Y-16, w:96, h:16});
       } else if(t==='slide'){
-        triggers.push({type:'slide', x:cx+off-80, y:GROUND_Y-88, w:160, h:88});
+        // a rideable ramp: up the front, accelerate down the back, exit fast & low
+        slideRamps.push({x:cx+off-100, w:210, h:120});
+      } else if(t==='lava'){
+        // one narrow lava pool (jump-clearable by any build) — touch → respawn at section start
+        triggers.push({type:'lava', x:cx+off-35, y:GROUND_Y-4, w:70, h:12});
       } else if(t==='cannon'){
         triggers.push({type:'cannon', x:cx+off-32, y:GROUND_Y-56, w:64, h:56});
       } else if(t==='zipline'){
@@ -331,11 +493,35 @@ function rebuildTrackObjects(){
         triggers.push({type:'ladder', x:lx, y:perchY, w:32, h:GROUND_Y-perchY});
       }
     });
-  });
+  }
 }
 
+// effective hazard list for a section = its theme's surface + object hazards
+function secMods(i){
+  const t = secTheme(i);
+  return (t.surface ? [t.surface] : []).concat(t.objects);
+}
 function sectionIndexAt(x){ return clamp(Math.floor(x/SEC_W),0,NUM_SECTIONS-1); }
-function sectionHas(x,type){ return sections[sectionIndexAt(x)].mods.includes(type); }
+function sectionHas(x,type){ return secMods(sectionIndexAt(x)).includes(type); }
+// respawn a racer at the very start of their current section (lava/spikes/falling penalty)
+function respawnSection(p){
+  const si = sectionIndexAt(p.x + PLAYER_W/2);
+  p.x = si*SEC_W + 24; p.y = GROUND_Y - PLAYER_H;
+  p.vx = 0; p.vy = 0; p.grounded = true; p.onSlide = null;
+  p.dash = 0; p.burn = 0; p.pounding = false; p.climbing = false;
+  p.stun = 18; p.invuln = 70;                    // brief mercy invuln so you don't instantly re-die
+  p.fx = 'WIPEOUT!'; p.fxT = 32;
+  sfx(p, 'wipeout');
+}
+// height of a slide ramp's ridable surface at world-x (short ramp up the front, long chute down)
+function slideSurfaceY(s, x){
+  const x0=s.x, x1=s.x+s.w, xc=x0+s.w*0.30, h=s.h;
+  if(x<=x0 || x>=x1) return GROUND_Y;
+  let f;
+  if(x<xc){ const t=(x-x0)/(xc-x0); f=t*t; }      // ramp up (ease-in)
+  else { const t=(x-xc)/(x1-xc); f=1-t*t; }        // chute down (gentle at top, steep at bottom)
+  return GROUND_Y - h*Math.max(0,Math.min(1,f));
+}
 
 //////////////////// PHYSICS ////////////////////
 function aabb(a,b){ return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y; }
@@ -354,7 +540,11 @@ function aiInput(p){
     }
   }
   for(const t of triggers){
-    if(t.type==='spikes' && t.x > p.x && t.x < p.x+90){ needJump=true; break; }
+    if((t.type==='spikes'||t.type==='lava') && t.x > p.x && t.x < p.x+90){ needJump=true; break; }
+  }
+  // chasm ahead? leap it (jumping CPUs clear it; the rest fall in & eat the time penalty)
+  for(const pit of pitSpans){
+    if(pit.x > p.x+PLAYER_W-10 && pit.x < p.x+PLAYER_W+70){ needJump=true; break; }
   }
   // headwind / pit-ish: jump randomly to ride bounce sections
   if((needJump || (sectionHas(p.x,'bounce')&&Math.random()<0.04)) && p.grounded && p.aiJumpCd===0){
@@ -386,18 +576,21 @@ function humanInput(p){
   };
 }
 
-// returns true if the ability actually fired (so the input buffer can clear)
+// returns true if the ability actually fired (so the input buffer can clear).
+// Abilities are intentionally POLARIZING — huge upside, real cost — and shine in
+// different biomes (flyers love the sky, dash/burner love flat dunes, etc.).
 function doAbility(p){
   const ab = p.stats.flags.ability;
-  const fx=(t,cd)=>{ p.fx=t; p.fxT=26; if(cd){p.abilityCd=cd; p.abilityCdMax=cd;} };
-  if(ab==='dash'){ if(p.abilityCd<=0){ p.dash=10; fx('DASH!',45); return true; } }
-  else if(ab==='blink'){ if(p.abilityCd<=0){ p.x += 120; fx('BLINK!',60); return true; } }
-  else if(ab==='pound'){ if(!p.grounded){ p.vy = 22; fx('POUND!'); return true; } }
-  else if(ab==='superjump'){ if(p.grounded){ p.vy = -JUMP_V*p.stats.jump*1.7; p.grounded=false; fx('LAUNCH!',30); return true; } }
+  const fx=(t,cd,snd)=>{ p.fx=t; p.fxT=28; if(cd){p.abilityCd=cd; p.abilityCdMax=cd;} if(snd) sfx(p,snd); };
+  if(ab==='dash'){ if(p.abilityCd<=0){ p.dash=18; p.invuln=Math.max(p.invuln,18); fx('DASH!',55,'dash'); return true; } }       // longer + bursts through spikes
+  else if(ab==='blink'){ if(p.abilityCd<=0){ p.x += 210; p.invuln=Math.max(p.invuln,10); fx('BLINK!',70,'blink'); return true; } } // teleport far, phases hazards
+  else if(ab==='pound'){ if(!p.grounded){ p.vy = 28; p.pounding=true; fx('POUND!',0,'pound'); return true; } }                  // slam → forward burst on landing
+  else if(ab==='superjump'){ if(p.grounded){ p.vy = -JUMP_V*p.stats.jump*2.3; p.grounded=false; fx('LAUNCH!',42,'superjump'); return true; } }
+  else if(ab==='burner'){ if(p.abilityCd<=0){ p.burn=34; p.grounded=false; p.vy=Math.min(p.vy,-2); fx('AFTERBURNER!',95,'burner'); return true; } } // locked rocket — no steering!
   // djump is handled in the jump logic (it's bound to the JUMP key, not SHIFT)
   return false;
 }
-const ABILITY_KEY = {dash:'SPACE', flap:'SPACE (hold to fly)', blink:'SPACE', pound:'SPACE (mid-air)', superjump:'SPACE (on ground)', djump:'JUMP again mid-air'};
+const ABILITY_KEY = {dash:'SPACE', flap:'SPACE (hold to fly)', blink:'SPACE', pound:'SPACE (mid-air)', superjump:'SPACE (on ground)', burner:'SPACE (locked rocket!)', djump:'JUMP again mid-air'};
 
 function updatePlayer(p, started){
   if(p.finished){ // glide to a stop past the line
@@ -424,7 +617,7 @@ function updatePlayer(p, started){
     if(p.abBuffer>0 && doAbility(p)) p.abBuffer = 0;
     // Jetpack: hold SHIFT for repeated upward thrust = controllable flight
     if(fl.ability==='flap' && inp.abilityHeld && p.flapCd<=0){
-      p.vy = Math.min(p.vy, 0) - 6.2; p.grounded=false; p.flapCd=11; p.fx='🔥'; p.fxT=8;
+      p.vy = Math.min(p.vy, 0) - 7.2; p.grounded=false; p.flapCd=9; p.fx='🔥'; p.fxT=8; sfx(p,'flap');
     }
 
     // climbing a ladder: hold JUMP/UP to go up. Reaching the top auto-launches you
@@ -442,13 +635,16 @@ function updatePlayer(p, started){
     } else {
       // horizontal (surface effects ONLY while grounded — fly/glide to avoid them)
       let maxSpd = BASE_SPEED * st.speed * p.speedJitter;
-      if(p.grounded && sectionHas(p.x,'sand')) maxSpd *= 0.62;
-      if(p.grounded && sectionHas(p.x,'mud'))  maxSpd *= 0.45;
+      if(p.grounded && sectionHas(p.x,'sand')) maxSpd *= 0.50;
+      if(p.grounded && sectionHas(p.x,'mud'))  maxSpd *= 0.32;
 
       const accel = p.grounded ? ACCEL_G : (fl.aircontrol?ACCEL_A*1.7:ACCEL_A);
       const dir = inp.dir;
-      if(p.dash>0){
-        p.vx = (p.facing||1) * maxSpd * 2.2; p.dash--;
+      if(p.burn>0){
+        // AFTERBURNER: monster forward thrust, NO steering & NO braking — you're committed
+        p.vx = (p.facing||1) * maxSpd * 3.4; p.burn--;
+      } else if(p.dash>0){
+        p.vx = (p.facing||1) * maxSpd * 2.9; p.dash--;
       } else if(dir!==0){
         p.facing = dir;
         p.vx += dir*accel;
@@ -461,13 +657,13 @@ function updatePlayer(p, started){
         if(Math.abs(p.vx)<0.05) p.vx=0;
       }
       // zone forces — boost only while running on it; wind hits you everywhere
-      if(p.grounded && sectionHas(p.x,'boost')) p.vx = clamp(p.vx+0.55, -maxSpd*2, maxSpd*2.2);
-      if(sectionHas(p.x,'wind'))  p.vx -= 0.22;
+      if(p.grounded && sectionHas(p.x,'boost')) p.vx = clamp(p.vx+0.7, -maxSpd*2, maxSpd*2.4);
+      if(sectionHas(p.x,'wind'))  p.vx -= 0.42;
 
       // jump
       if(inp.jump){
-        if(p.grounded){ p.vy = -JUMP_V*st.jump; p.grounded=false; p.djumpUsed=false; }
-        else if(fl.ability==='djump' && !p.djumpUsed){ p.vy = -JUMP_V*st.jump; p.djumpUsed=true; }
+        if(p.grounded){ p.vy = -JUMP_V*st.jump; p.grounded=false; p.djumpUsed=false; sfx(p,'jump'); }
+        else if(fl.ability==='djump' && !p.djumpUsed){ p.vy = -JUMP_V*st.jump; p.djumpUsed=true; sfx(p,'djump'); }
       }
     }
   }
@@ -486,40 +682,64 @@ function updatePlayer(p, started){
 
   // integrate + collide
   const wasGrounded = p.grounded;
+  const fallV = p.vy;            // collide will zero this — capture for landing fx
   moveAndCollide(p);
 
   // landing effects
   if(p.grounded && !wasGrounded){
     p.djumpUsed=false;
+    if(p.pounding){ p.pounding=false; p.vx += (p.facing||1)*9; sfx(p,'poundhit'); } // slam → forward burst
+    else if(fallV>4) sfx(p,'land');
     if(fl.autohop) p.vy = -JUMP_V*st.jump*0.55, p.grounded=false;
     else if(fl.bounce) p.vy = -JUMP_V*st.jump*0.7, p.grounded=false;
   }
+  if(p.grounded) p.burn = 0;     // landing snuffs the afterburner
 
-  // triggers (spring / spikes)
+  // --- SLIDE RIDE: snap to the ramp surface, accelerate down the chute, exit fast & LOW ---
+  {
+    const cxp = p.x+PLAYER_W/2;
+    let ramp=null;
+    for(const s of slideRamps){ if(cxp>s.x && cxp<s.x+s.w){ ramp=s; break; } }
+    if(ramp && !p.finished){
+      const surfY = slideSurfaceY(ramp, cxp);
+      if((p.y+PLAYER_H) >= surfY-10 && p.vy>=-2){      // riding the chute (not flying/jumping over it)
+        const xc = ramp.x + ramp.w*0.30;
+        p.y = surfY - PLAYER_H; p.vy = 0; p.grounded = true; p.onSlide = ramp;
+        const fwd = p.facing||1, maxSpd = BASE_SPEED*st.speed*p.speedJitter;
+        if(cxp > xc){ p.vx = clamp(p.vx + fwd*0.9, -maxSpd*3, maxSpd*3); }   // whoosh downhill
+        if(p.idx===0 && raceFrame%6===0) sfx(p,'slidewhoosh');
+      } else { p.onSlide = null; }
+    } else if(p.onSlide){
+      // just shot off the bottom of the chute → fast & LOW exit (not a leap into the air)
+      const fwd=p.facing||1, maxSpd = BASE_SPEED*st.speed*p.speedJitter;
+      p.vx = fwd*Math.max(Math.abs(p.vx), maxSpd*2.4); p.vy = Math.max(p.vy, 1);
+      p.fx='WHEEE!'; p.fxT=20; sfx(p,'slide'); p.onSlide = null;
+    }
+  }
+
+  // triggers (pads / hazards) — punchier across the board
   const pb = {x:p.x,y:p.y,w:PLAYER_W,h:PLAYER_H};
   for(const t of triggers){
     if(aabb(pb,t)){
       const fwd = p.facing||1;
       if(t.type==='spring'){ // launch up AND forward; brief cooldown so it can't re-fire in place
-        if(p.padCd<=0 && p.vy>=0){ p.vy=-15; p.vx=fwd*Math.max(Math.abs(p.vx),6); p.grounded=false; p.padCd=22; }
+        if(p.padCd<=0 && p.vy>=0){ p.vy=-17; p.vx=fwd*Math.max(Math.abs(p.vx),7); p.grounded=false; p.padCd=22; sfx(p,'spring'); }
       } else if(t.type==='bounce'){
-        if(p.padCd<=0 && p.vy>=0){ p.vy=-12; p.grounded=false; p.padCd=14; }
+        if(p.padCd<=0 && p.vy>=0){ p.vy=-14; p.grounded=false; p.padCd=14; sfx(p,'bounce'); }
       } else if(t.type==='spikes' && p.invuln<=0){
-        // cost momentum + a little hop, but NEVER knock backward — you coast through during i-frames
-        p.vx=fwd*1.5; p.vy=-4; p.stun=16; p.invuln=46;
+        respawnSection(p); break;   // DEADLY: back to the start of this section
+      } else if(t.type==='lava' && p.invuln<=0){
+        respawnSection(p); break;   // DEADLY: back to the start of this section
       } else if(t.type==='boostpad'){
-        if(p.padCd<=0){ p.vx=fwd*12; p.padCd=18; p.fx='ZOOM!'; p.fxT=20; }
-      } else if(t.type==='slide'){
-        // big ramp: launches you up & forward in a satisfying arc
-        if(p.padCd<=0){ p.vy=-14; p.vx=fwd*Math.max(Math.abs(p.vx),12); p.grounded=false; p.padCd=22; p.fx='WHEE!'; p.fxT=20; }
+        if(p.padCd<=0){ p.vx=fwd*16; p.padCd=18; p.fx='ZOOM!'; p.fxT=20; sfx(p,'boost'); }
       } else if(t.type==='cannon'){
-        if(p.padCd<=0){ p.vy=-14; p.vx=fwd*18; p.grounded=false; p.padCd=34; p.fx='BLAST!'; p.fxT=24; }
+        if(p.padCd<=0){ p.vy=-17; p.vx=fwd*23; p.grounded=false; p.padCd=34; p.fx='BLAST!'; p.fxT=24; sfx(p,'cannon'); }
       } else if(t.type==='zipline' || t.type==='skyring'){
         // speed rings: each ring you pass through gives a repeatable forward nudge
-        if(p.padCd<=0){ p.vx=fwd*Math.max(Math.abs(p.vx),11); p.padCd=4; if(t.type==='skyring'){p.fx='✨';p.fxT=10;} }
+        if(p.padCd<=0){ p.vx=fwd*Math.max(Math.abs(p.vx),12); p.padCd=4; sfx(p,'ring'); if(t.type==='skyring'){p.fx='✨';p.fxT=10;} }
       } else if(t.type==='updraft'){
         // rising air column: strong lift while inside (great for getting up to the sky route)
-        p.vy -= 1.05; if(p.vy < -8) p.vy = -8; p.grounded=false;
+        p.vy -= 1.15; if(p.vy < -9) p.vy = -9; p.grounded=false;
       }
     }
   }
@@ -536,11 +756,16 @@ function updatePlayer(p, started){
   // bounds
   if(p.x<0){p.x=0; if(p.vx<0)p.vx=0;}
 
+  // fell into a chasm → respawn at the start of this section
+  if(!p.finished && p.y > GROUND_Y + 110){ respawnSection(p); }
+
   // finish
   if(!p.finished && p.x+PLAYER_W >= FINISH_X){
     p.finished=true; p.finishTime=raceFrame;
     lastFinishOrder.push(p);
     p.place = lastFinishOrder.length;
+    if(lastFinishOrder.length===1) firstFinishFrame=raceFrame;  // start the 15s sudden-death clock
+    sfx(p,'finish');
   }
 
   // remember key edges for human
@@ -583,38 +808,45 @@ function moveAndCollide(p){
 }
 
 //////////////////// RACE LOOP ////////////////////
-let raceFrame=0, countdown=0, started=false, cameraX=0;
+let raceFrame=0, countdown=0, started=false, cameraX=0, lastCountShown=-1;
+let firstFinishFrame=-1;            // raceFrame the first racer crossed (starts the 15s sudden-death clock)
+const SUDDEN_DEATH_FRAMES = 60*15;  // race auto-ends 15s after the first finisher
 
 function startRace(){
   // reset players to start
   lastFinishOrder = [];
-  rebuildTrackObjects();
+  rebuildTrackObjects();   // builds this race's track from each section's chosen theme
   players.forEach((p,i)=>{
     p.stats = computeStats(p.build);
     p.x = 60 + i*6; p.y = GROUND_Y-PLAYER_H; p.vx=0; p.vy=0;
-    p.grounded=true; p.djumpUsed=false; p.dash=0; p.abilityCd=0; p.abBuffer=0; p.flapCd=0; p.climbing=false; p.ladderCd=0; p.stun=0; p.invuln=0; p.padCd=0; p.fx=''; p.fxT=0;
+    p.grounded=true; p.djumpUsed=false; p.dash=0; p.burn=0; p.pounding=false; p.onSlide=null; p.abilityCd=0; p.abBuffer=0; p.flapCd=0; p.climbing=false; p.ladderCd=0; p.stun=0; p.invuln=0; p.padCd=0; p.fx=''; p.fxT=0;
     p.rocketT=0; p.finished=false; p.place=0; p.facing=1; p.aiJumpCd=0;
     p.speedJitter = i===0?1.0:(0.95+Math.random()*0.09);
   });
   raceFrame=0; countdown=180; started=false; cameraX=0;
+  lastCountShown=-1; firstFinishFrame=-1;
   setState('race');
+  startMusic();
 }
 
 function raceTick(){
   raceFrame++;
-  if(countdown>0){ countdown--; if(countdown===0) started=true; }
+  if(countdown>0){
+    countdown--; if(countdown===0) started=true;
+    const n = Math.ceil(countdown/60);     // 3..2..1..GO! beeps
+    if(n!==lastCountShown){ lastCountShown=n; SFX.count(n===0); }
+  }
 
   for(const p of players) updatePlayer(p, started);
 
-  // failsafe end
+  // race ends when everyone's in, the 15s sudden-death clock expires, or the 70s backstop hits
   const everyone = lastFinishOrder.length>=4;
+  const sudden = firstFinishFrame>=0 && (raceFrame - firstFinishFrame) >= SUDDEN_DEATH_FRAMES;
   const timeout = raceFrame > 60*70;
-  if(everyone || timeout){
-    if(timeout){
-      // rank the not-yet-finished by x
-      const left = players.filter(p=>!p.finished).sort((a,b)=>b.x-a.x);
-      for(const p of left){ p.finished=true; lastFinishOrder.push(p); p.place=lastFinishOrder.length; }
-    }
+  if(everyone || sudden || timeout){
+    // rank everyone not yet across the line by how far they got
+    const left = players.filter(p=>!p.finished).sort((a,b)=>b.x-a.x);
+    for(const p of left){ p.finished=true; lastFinishOrder.push(p); p.place=lastFinishOrder.length; }
     endRace();
     return;
   }
@@ -625,6 +857,7 @@ function raceTick(){
 }
 
 function endRace(){
+  stopMusic();
   // award points
   const ptsTable = [4,3,2,1];
   const mult = (raceNum === RACES-1) ? 2 : 1;
@@ -644,60 +877,122 @@ function cloud(x,y,s){
   ctx.arc(x,y,22*s,0,7); ctx.arc(x+26*s,y+6*s,28*s,0,7); ctx.arc(x+58*s,y,20*s,0,7);
   ctx.arc(x+28*s,y-14*s,22*s,0,7); ctx.closePath(); ctx.fill();
 }
-function drawBackdrop(){
-  // sun
+// a few stars for the Sky theme
+const STARS = [];
+for(let i=0;i<70;i++) STARS.push({x:(i*137)%CW, y:(i*89)%320, s:((i*31)%3)+1});
+// draw a slide ramp matching the EXACT surface the player rides (slideSurfaceY)
+function drawSlide(s){
+  const x0=s.x, x1=s.x+s.w, xc=x0+s.w*0.30, peakY=GROUND_Y-s.h;
+  ctx.lineCap='round';
+  // support legs
+  ctx.strokeStyle='#6b4ea8'; ctx.lineWidth=6;
+  ctx.beginPath();
+  ctx.moveTo(xc, peakY+8); ctx.lineTo(xc, GROUND_Y);
+  const mx=(xc+x1)/2; ctx.moveTo(mx, slideSurfaceY(s,mx)); ctx.lineTo(mx, GROUND_Y);
+  ctx.stroke();
+  // steps up the short front
+  ctx.strokeStyle='#c98a4a'; ctx.lineWidth=3;
+  for(let x=x0+8; x<xc; x+=14){ ctx.beginPath(); ctx.moveTo(x, slideSurfaceY(s,x)); ctx.lineTo(x, GROUND_Y); ctx.stroke(); }
+  // chute band along the ridable surface
+  ctx.strokeStyle='#ff7ec8'; ctx.lineWidth=16; ctx.beginPath();
+  ctx.moveTo(x0, slideSurfaceY(s,x0));
+  for(let x=x0; x<=x1; x+=8) ctx.lineTo(x, slideSurfaceY(s,x));
+  ctx.stroke();
+  // slick highlight
+  ctx.strokeStyle='rgba(255,255,255,.7)'; ctx.lineWidth=4; ctx.beginPath();
+  ctx.moveTo(x0, slideSurfaceY(s,x0)-3);
+  for(let x=x0; x<=x1; x+=8) ctx.lineTo(x, slideSurfaceY(s,x)-3);
+  ctx.stroke();
+  // flag at the peak
+  ctx.strokeStyle='#ffd23d'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(xc, peakY); ctx.lineTo(xc, peakY-18); ctx.stroke();
+  ctx.fillStyle='#ff4d6d'; ctx.beginPath(); ctx.moveTo(xc, peakY-18); ctx.lineTo(xc+15, peakY-13); ctx.lineTo(xc, peakY-8); ctx.closePath(); ctx.fill();
+  ctx.lineCap='butt';
+}
+// Each section paints its own themed backdrop (sky + props) in world space, clipped to
+// its column. The viewport spans at most two sections, so you see a clean transition.
+function drawSectionBackdrop(i){
+  const th=secTheme(i), sx=i*SEC_W;
+  const g=ctx.createLinearGradient(0,0,0,CH);
+  g.addColorStop(0,th.sky[0]); g.addColorStop(0.6,th.sky[1]); g.addColorStop(1,th.sky[2]);
   ctx.save();
-  ctx.fillStyle='rgba(255,241,150,.95)'; ctx.beginPath(); ctx.arc(CW-110,80,42,0,7); ctx.fill();
-  ctx.fillStyle='rgba(255,241,150,.25)'; ctx.beginPath(); ctx.arc(CW-110,80,62,0,7); ctx.fill();
+  ctx.beginPath(); ctx.rect(sx,0,SEC_W,CH); ctx.clip();
+  ctx.fillStyle=g; ctx.fillRect(sx,0,SEC_W,CH);
+  const prop=th.prop;
+  if(prop==='hills' || prop==='play'){
+    ctx.fillStyle='rgba(255,241,150,.9)'; ctx.beginPath(); ctx.arc(sx+SEC_W*0.72,80,38,0,7); ctx.fill();
+    for(let c=0;c<3;c++) cloud(sx+200+c*430, 70+((c*53)%60), 0.8);
+    ctx.fillStyle = prop==='play' ? '#8fd17a' : '#7fbf86';
+    for(let h=0;h<4;h++){ const hx=sx+h*360; ctx.beginPath(); ctx.moveTo(hx,GROUND_Y); ctx.quadraticCurveTo(hx+180,GROUND_Y-115,hx+360,GROUND_Y); ctx.fill(); }
+    if(prop==='play'){ // playground: floating balloons + a swing-set silhouette
+      ['#ff5fb0','#ffd23d','#5fd0ff'].forEach((col,k)=>{ ctx.fillStyle=col; ctx.beginPath(); ctx.arc(sx+SEC_W*0.4+k*44,150+(k%2)*34,13,0,7); ctx.fill(); ctx.strokeStyle='rgba(255,255,255,.4)'; ctx.beginPath(); ctx.moveTo(sx+SEC_W*0.4+k*44,163+(k%2)*34); ctx.lineTo(sx+SEC_W*0.4+k*44,200); ctx.stroke(); });
+    }
+  } else if(prop==='dungeon'){
+    ctx.fillStyle='rgba(0,0,0,.16)';
+    for(let by=36; by<GROUND_Y; by+=34){ for(let bxx=sx+((Math.floor(by/34))%2)*40; bxx<sx+SEC_W; bxx+=80){ ctx.fillRect(bxx,by,72,28); } }
+    for(let tx=sx+220; tx<sx+SEC_W; tx+=420){      // flickering torches
+      ctx.fillStyle='#5a3a1a'; ctx.fillRect(tx,GROUND_Y-148,8,58);
+      const fl=14+Math.sin((raceFrame+tx)*0.2)*3;
+      ctx.fillStyle='rgba(255,140,40,.9)'; ctx.beginPath(); ctx.arc(tx+4,GROUND_Y-150,fl,0,7); ctx.fill();
+      ctx.fillStyle='rgba(255,235,140,.95)'; ctx.beginPath(); ctx.arc(tx+4,GROUND_Y-152,fl*0.5,0,7); ctx.fill();
+    }
+  } else if(prop==='ice'){
+    ctx.fillStyle='rgba(255,255,255,.45)';            // hanging icicles
+    for(let ix=sx+60; ix<sx+SEC_W; ix+=130){ const len=40+((ix*7)%60); ctx.beginPath(); ctx.moveTo(ix,0); ctx.lineTo(ix+15,0); ctx.lineTo(ix+7,len); ctx.closePath(); ctx.fill(); }
+    ctx.fillStyle='rgba(200,240,255,.5)';
+    for(let h=0;h<4;h++){ const hx=sx+h*360; ctx.beginPath(); ctx.moveTo(hx,GROUND_Y); ctx.quadraticCurveTo(hx+180,GROUND_Y-85,hx+360,GROUND_Y); ctx.fill(); }
+  } else if(prop==='stars'){
+    ctx.fillStyle='rgba(255,255,255,.85)';
+    for(const st of STARS){ ctx.fillRect(sx+((st.x*3)%SEC_W), st.y, st.s, st.s); }
+    ctx.fillStyle='rgba(255,255,255,.92)'; ctx.beginPath(); ctx.arc(sx+SEC_W*0.7,90,34,0,7); ctx.fill();
+  } else if(prop==='lab'){
+    ctx.strokeStyle='rgba(120,200,255,.22)'; ctx.lineWidth=10;
+    for(let py=80; py<GROUND_Y; py+=90){ ctx.beginPath(); ctx.moveTo(sx,py); ctx.lineTo(sx+SEC_W,py); ctx.stroke(); }
+    ctx.fillStyle='rgba(150,180,210,.3)';
+    for(let gx=sx+170; gx<sx+SEC_W; gx+=380){ ctx.save(); ctx.translate(gx,160); ctx.rotate(raceFrame*0.02); for(let a=0;a<8;a++){ ctx.rotate(Math.PI/4); ctx.fillRect(-6,-32,12,14); } ctx.beginPath(); ctx.arc(0,0,20,0,7); ctx.fill(); ctx.restore(); }
+  }
   ctx.restore();
-  // far hills (slow parallax)
-  const hOff = cameraX*0.25;
-  ctx.fillStyle='#9ccf8f';
-  for(const h of HILLS){
-    const x = h.x - (hOff % (HILLS.length*420));
-    ctx.beginPath(); ctx.moveTo(x, GROUND_Y); ctx.quadraticCurveTo(x+h.w/2, GROUND_Y-h.h, x+h.w, GROUND_Y); ctx.fill();
-  }
-  ctx.fillStyle='#7fbf86';
-  for(const h of HILLS){
-    const x = h.x+180 - (cameraX*0.4 % (HILLS.length*420));
-    ctx.beginPath(); ctx.moveTo(x, GROUND_Y); ctx.quadraticCurveTo(x+h.w/2, GROUND_Y-h.h*0.7, x+h.w, GROUND_Y); ctx.fill();
-  }
-  // clouds (medium parallax)
-  const cOff = cameraX*0.5;
-  for(const c of CLOUDS){ cloud(c.x - (cOff % 6200), c.y, c.s); }
 }
 function draw(){
   ctx.clearRect(0,0,CW,CH);
-  // sky gradient
-  const g = ctx.createLinearGradient(0,0,0,CH);
-  g.addColorStop(0,'#7fb2ee'); g.addColorStop(0.6,'#a9d4f5'); g.addColorStop(1,'#dff0ff');
-  ctx.fillStyle=g; ctx.fillRect(0,0,CW,CH);
-
-  drawBackdrop();
-
   ctx.save();
   ctx.translate(-cameraX,0);
 
-  // section floors (colored by mods)
+  // per-section themed backdrops (sky + props), then floors
+  for(let i=0;i<NUM_SECTIONS;i++) drawSectionBackdrop(i);
+
+  // section floors (theme ground colour, overridden by surface)
   for(let i=0;i<NUM_SECTIONS;i++){
-    const sx=i*SEC_W;
-    let col='#6ab04c';
-    const mods=sections[i].mods;
+    const sx=i*SEC_W, th=secTheme(i);
+    let col=th.ground;
+    const mods=secMods(i);
     for(const t of mods){ if(['ice','sand','mud'].includes(t)) col=MAP_BY_TYPE[t].color; }
     ctx.fillStyle=col;
     ctx.fillRect(sx, GROUND_Y, SEC_W, CH-GROUND_Y);
-    ctx.fillStyle='rgba(0,0,0,.12)';
+    ctx.fillStyle=th.edge;
     ctx.fillRect(sx, GROUND_Y, SEC_W, 6);
-    // zone tint for boost/wind/bounce
+    // zone tint for boost/wind
     for(const t of mods){
       if(t==='boost'){ stripeZone(sx,'#ff8a3d','→'); }
       else if(t==='wind'){ stripeZone(sx,'#9fb6c9','←'); }
     }
-    // section divider + label
-    ctx.fillStyle='rgba(255,255,255,.4)'; ctx.fillRect(sx,0,2,CH);
-    ctx.fillStyle='rgba(20,30,55,.55)'; ctx.font='bold 12px Segoe UI';
-    ctx.fillText('SECTION '+(i+1), sx+10, 20);
+    // section divider + theme label
+    ctx.fillStyle='rgba(255,255,255,.35)'; ctx.fillRect(sx,0,2,CH);
+    ctx.fillStyle='rgba(255,255,255,.85)'; ctx.font='bold 12px Segoe UI';
+    ctx.fillText(`S${i+1} · ${th.icon} ${th.name}`, sx+10, 18);
   }
+
+  // chasms: carve the gap (the void shows through) + danger-striped lips
+  for(const pit of pitSpans){
+    const g2 = ctx.createLinearGradient(0,GROUND_Y,0,CH);
+    g2.addColorStop(0,'rgba(8,6,14,.7)'); g2.addColorStop(1,'rgba(8,6,14,.98)');
+    ctx.fillStyle=g2; ctx.fillRect(pit.x, GROUND_Y, pit.w, CH-GROUND_Y);
+    ctx.fillStyle='#ffcf3d';
+    for(let i=0;i<pit.w;i+=18){ ctx.fillRect(pit.x+i, GROUND_Y, 9, 5); }
+  }
+
+  // slide ramps (the ridable surface, drawn as a slick chute)
+  for(const s of slideRamps) drawSlide(s);
+
 
   // base blocks/platforms
   for(const b of baseLayout){
@@ -723,13 +1018,14 @@ function draw(){
       ctx.fillStyle='#ffd23d'; roundRect(t.x,t.y,t.w,t.h,4); ctx.fill();
       ctx.fillStyle='#a06b00'; ctx.font='bold 17px Segoe UI'; ctx.textAlign='center';
       ctx.fillText('»»»', t.x+t.w/2, t.y+t.h-3); ctx.textAlign='left';
-    } else if(t.type==='slide'){
-      // big ramp rising to the right, with grippy stripes + an arrow so it's unmistakable
-      ctx.fillStyle='#37b6ef'; ctx.beginPath();
-      ctx.moveTo(t.x, t.y+t.h); ctx.lineTo(t.x+t.w, t.y); ctx.lineTo(t.x+t.w, t.y+t.h); ctx.closePath(); ctx.fill();
-      ctx.strokeStyle='rgba(255,255,255,.6)'; ctx.lineWidth=3;
-      for(let s=0.2;s<1;s+=0.2){ ctx.beginPath(); ctx.moveTo(t.x+t.w*s, t.y+t.h); ctx.lineTo(t.x+t.w*s, t.y+t.h-(t.h*s)); ctx.stroke(); }
-      ctx.fillStyle='#fff'; ctx.font='22px Segoe UI Emoji'; ctx.fillText('🛝', t.x+t.w*0.32, t.y+t.h-12);
+    } else if(t.type==='lava'){
+      // glowing, bubbling lava pool — touch it and you're back at the section start
+      const g=ctx.createLinearGradient(0,t.y,0,t.y+t.h+20);
+      g.addColorStop(0,'#ffe14d'); g.addColorStop(0.5,'#ff7a1f'); g.addColorStop(1,'#c41a00');
+      ctx.fillStyle=g; ctx.fillRect(t.x,t.y,t.w,t.h+18);
+      ctx.fillStyle='rgba(255,240,150,.9)';
+      for(let bx=t.x+8; bx<t.x+t.w; bx+=16){ const r=Math.max(1,3+Math.sin((raceFrame+bx)*0.2)*2); ctx.beginPath(); ctx.arc(bx, t.y+4, r, 0,7); ctx.fill(); }
+      ctx.fillStyle='#7a1500'; ctx.fillRect(t.x-3,t.y-3,t.w+6,3); // hot rim
     } else if(t.type==='cannon'){
       ctx.fillStyle='#ff7b00'; roundRect(t.x,t.y+t.h-18,t.w,18,4); ctx.fill(); // base
       ctx.save(); ctx.translate(t.x+t.w/2, t.y+t.h-12); ctx.rotate(-0.6);
@@ -871,11 +1167,21 @@ function drawHUD(){
     ctx.beginPath(); ctx.arc(barX+t*barW, barY+barH/2, 6, 0, Math.PI*2); ctx.fill();
     ctx.strokeStyle='#fff'; ctx.lineWidth=1.5; ctx.stroke();
   }
-  // race header
-  ctx.fillStyle='rgba(10,16,30,.7)'; ctx.fillRect(20,8,250,30);
-  ctx.fillStyle='#fff'; ctx.font='bold 16px Segoe UI';
-  const dbl = (raceNum===RACES-1)?'  ★ DOUBLE POINTS':'';
-  ctx.fillText(`RACE ${raceNum+1} / ${RACES}${dbl}`, 30, 28);
+  // race header (race # + the section theme you're currently in + double-points flag)
+  const curTh = themeAtX(players[0].x);
+  ctx.fillStyle='rgba(10,16,30,.7)'; ctx.fillRect(20,8,330,30);
+  ctx.fillStyle='#fff'; ctx.font='bold 15px Segoe UI';
+  const dbl = (raceNum===RACES-1)?'  ★ DOUBLE':'';
+  ctx.fillText(`RACE ${raceNum+1}/${RACES}  ·  ${curTh.icon} ${curTh.name}${dbl}`, 30, 28);
+
+  // sudden-death clock — once someone finishes, everyone else has 15s
+  if(firstFinishFrame>=0 && started){
+    const left = Math.ceil((SUDDEN_DEATH_FRAMES - (raceFrame-firstFinishFrame))/60);
+    ctx.fillStyle = left<=5 ? 'rgba(200,30,30,.9)' : 'rgba(10,16,30,.7)';
+    ctx.fillRect(CW/2-90,8,180,30);
+    ctx.fillStyle='#fff'; ctx.font='bold 16px Segoe UI'; ctx.textAlign='center';
+    ctx.fillText(`⏱ ${Math.max(0,left)}s — FINISH!`, CW/2, 28); ctx.textAlign='left';
+  }
 
   // scoreboard (top-right)
   const sorted=[...players].sort((a,b)=>b.points-a.points);
@@ -889,9 +1195,9 @@ function drawHUD(){
   });
 
   // controls hint (bottom-left)
-  ctx.fillStyle='rgba(10,16,30,.55)'; ctx.fillRect(20, CH-30, 320, 24);
+  ctx.fillStyle='rgba(10,16,30,.55)'; ctx.fillRect(20, CH-30, 360, 24);
   ctx.fillStyle='#cfe0ff'; ctx.font='12px Segoe UI';
-  ctx.fillText('← → / A D : move      ↑ / W : jump', 30, CH-14);
+  ctx.fillText('← → / A D : move    ↑ / W : jump    M : '+(soundOn?'mute':'unmute'), 30, CH-14);
 
   // ability pill (bottom-right) — shows the real activation key + a charge bar
   const me=players[0];
@@ -962,7 +1268,7 @@ function makeCard(opt,onClick,col){
   const c=document.createElement('div'); c.className='card';
   const ic = opt.icon ? `<span class="cicon">${opt.icon}</span>` : '';
   c.innerHTML=`<div class="cname">${ic}${opt.name}</div><div class="cdesc">${opt.desc}</div>`;
-  c.onclick=()=>onClick();
+  c.onclick=()=>{ initAudio(); resumeAudio(); SFX.select(); onClick(); };
   c._opt=opt;
   if(col){ col._sel = (o)=>{ [...col.querySelectorAll('.card')].forEach(x=>x.classList.toggle('sel', x._opt===o)); }; }
   return c;
@@ -988,7 +1294,7 @@ function showResults(mult){
   const me=players[0];
   $('resultFlavor').innerHTML = `You finished <b>${['1st','2nd','3rd','4th'][me.place-1]}</b>.<br><br>`+
     (raceNum<RACES-1
-      ? 'Next up: the <b>Scramble phase</b> — everyone re-rolls one attribute and drops one new modifier somewhere on the shared track. It only gets weirder from here.'
+      ? 'Next up: the <b>Scramble phase</b> — everyone re-rolls one attribute and re-<b>themes</b> a section of the shared track (playground, dungeon, ice cave…). It only gets weirder from here.'
       : 'That was the final race.');
   $('resultNext').textContent = raceNum<RACES-1 ? 'TO THE SCRAMBLE →' : 'SEE FINAL STANDINGS →';
   setState('results');
@@ -1005,7 +1311,7 @@ function showEscalation(){
   escSlot = rand(SLOT_ORDER);
   escSection = Math.floor(Math.random()*NUM_SECTIONS);
   escAttrPick=null; escModPick=null;
-  $('escSub').textContent = `Round ${raceNum+1} done. Everyone gets one re-roll and one map edit. The CPUs are editing the track too…`;
+  $('escSub').textContent = `Round ${raceNum+1} done. Everyone re-rolls one attribute and re-themes a section. The CPUs are re-theming the track too…`;
   $('escSlotName').textContent = SLOT_LABEL[escSlot];
   $('escSecName').textContent = 'Section '+(escSection+1);
 
@@ -1016,39 +1322,40 @@ function showEscalation(){
     const c=makeCard(opt, ()=>{ escAttrPick=opt; markSel(ac,c); checkEscReady(); });
     ac.appendChild(c);
   });
-  // map mod cards
-  const dealtM = deal(MAP_MODS,3);
+  // THEME cards — pick a new theme (hazard set + backdrop) for the target section
+  const dealtT = deal(THEME_ORDER,3);
   const mc=$('escModCards'); mc.innerHTML='';
-  dealtM.forEach(opt=>{
+  dealtT.forEach(key=>{
+    const th=SECTION_THEMES[key];
+    const haz=(th.surface?MAP_BY_TYPE[th.surface].name+' floor · ':'')+th.objects.map(t=>MAP_BY_TYPE[t]?MAP_BY_TYPE[t].name:t).join(', ');
     const c=document.createElement('div'); c.className='card';
-    c.innerHTML=`<div class="cname"><span class="cicon">${opt.icon||''}</span>${opt.name}</div><div class="cdesc">${opt.desc}</div>`;
-    c.onclick=()=>{ escModPick=opt; markSel(mc,c); checkEscReady(); };
+    c.innerHTML=`<div class="cname"><span class="cicon">${th.icon}</span>${th.name}</div><div class="cdesc">${haz}</div>`;
+    c.onclick=()=>{ initAudio(); resumeAudio(); SFX.select(); escModPick=key; markSel(mc,c); checkEscReady(); };
     mc.appendChild(c);
   });
-  // section map
+  // section map (shows each section's current theme icon)
   const sm=$('escSecMap'); sm.innerHTML='';
   for(let i=0;i<NUM_SECTIONS;i++){
     const d=document.createElement('div'); d.className='secpill'+(i===escSection?' target':'');
-    const tags = sections[i].mods.map(t=>MAP_BY_TYPE[t].icon).join(' ');
-    d.innerHTML=`S${i+1}<br><span style="font-size:15px">${tags||'—'}</span>`;
+    d.innerHTML=`S${i+1}<br><span style="font-size:16px">${secTheme(i).icon}</span>`;
     sm.appendChild(d);
   }
   $('escNext').disabled=true;
   setState('esc');
 
-  // CPU choices (apply now): re-roll + add a random mod to a random section
+  // CPU choices (apply now): re-roll an attribute + re-theme a random section
   for(let i=1;i<4;i++){
     const slot=rand(SLOT_ORDER);
     players[i].build[slot]=rand(deal(POOLS[slot],3));
-    const sec=Math.floor(Math.random()*NUM_SECTIONS);
-    sections[sec].mods.push(rand(MAP_MODS).type);
+    sections[Math.floor(Math.random()*NUM_SECTIONS)].theme = rand(THEME_ORDER);
   }
 }
 function markSel(container,card){ [...container.querySelectorAll('.card')].forEach(x=>x.classList.toggle('sel',x===card)); }
 function checkEscReady(){ $('escNext').disabled = !(escAttrPick&&escModPick); }
 $('escNext').onclick=()=>{
+  SFX.scramble();
   players[0].build[escSlot]=escAttrPick;
-  sections[escSection].mods.push(escModPick.type);
+  sections[escSection].theme = escModPick;
   raceNum++;
   startRace();
 };
@@ -1065,9 +1372,10 @@ function showFinal(){
     tbl.appendChild(tr);
   });
   const meRank = sorted.findIndex(p=>p.idx===0)+1;
+  if(meRank===1) SFX.win(); else SFX.finish();
   $('finalTitle').textContent = meRank===1 ? '🏆 You win the tournament!' : `Tournament over — you placed ${['1st','2nd','3rd','4th'][meRank-1]}`;
-  $('finalFlavor').innerHTML = `Final track had these section mods:<br><br>`+
-    sections.map((s,i)=>`<b>S${i+1}:</b> ${s.mods.map(t=>MAP_BY_TYPE[t].name).join(', ')||'plain'}`).join('<br>');
+  $('finalFlavor').innerHTML = `The final track ended up themed like this:<br><br>`+
+    sections.map((s,i)=>`<b>S${i+1}:</b> ${secTheme(i).icon} ${secTheme(i).name}`).join('<br>');
   setState('final');
 }
 $('finalRestart').onclick=()=>{ resetMatch(); buildBaseLayout(); showDraft(); };
@@ -1080,10 +1388,14 @@ function loop(){
 }
 
 window.addEventListener('keydown',e=>{
+  initAudio(); resumeAudio();              // first key unlocks audio (browser autoplay policy)
+  if(e.key==='m'||e.key==='M'){ soundOn=!soundOn; if(soundOn) SFX.select(); }
   keys[e.key]=true;
   if([' ','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) e.preventDefault();
 });
 window.addEventListener('keyup',e=>{ keys[e.key]=false; });
+// also unlock on the START button (mouse-only players)
+$('draftStart').addEventListener('mousedown',()=>{ initAudio(); resumeAudio(); });
 
 // boot
 resetMatch();
