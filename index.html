@@ -128,7 +128,7 @@
 //////////////////// CONFIG ////////////////////
 const CW = 960, CH = 540;
 const GROUND_Y = 470;          // top of the floor
-const TRACK_LEN = 6400;
+const TRACK_LEN = 9600;        // sections are 50% longer (1920 each)
 const NUM_SECTIONS = 5;
 const SEC_W = TRACK_LEN / NUM_SECTIONS;
 const FINISH_X = TRACK_LEN - 220;
@@ -291,6 +291,11 @@ const POOLS = {
     {name:'Roller Skates',  icon:'🛼', desc:'Run ×1.4 but always slippery', mods:{speed:1.4, slippery:true}},
     {name:'Moon Boots',     icon:'👢', desc:'Jump ×1.2, gravity ×0.85', mods:{jump:1.2, gravity:0.85}},
     {name:'Rocket Skates',  icon:'🛼', desc:'Run ×1.15 + constant forward thrust — fast but hard to brake!', mods:{speed:1.15, thrust:true}},
+    {name:'Fish Flops',     icon:'🐟', desc:'Floppy flippers: auto-hop every step + a big jump, but oh-so slippery', mods:{autohop:true, jump:1.2, slippery:true}},
+    {name:'Pogo Stilts',    icon:'🦗', desc:'BOING! Bounce sky-high off every landing', mods:{bounce:true, jump:1.15}},
+    {name:'Gecko Grips',    icon:'🦎', desc:'Total grip: stop on a dime & shrug off knockbacks (great for timing hazards)', mods:{grip:true, sticky:true}},
+    {name:'Cheetah Paws',   icon:'🐆', desc:'Run ×1.55 — blazing fast — but a weak jump (×0.7)', mods:{speed:1.55, jump:0.7}},
+    {name:'Clown Shoes',    icon:'🤡', desc:'Huge floppy honkers: jump ×1.45 but run ×0.8 (and a honk)', mods:{jump:1.45, speed:0.8}},
   ],
   ability: [
     {name:'Dash',        icon:'💨', desc:'SPACE: burst forward', mods:{ability:'dash'}},
@@ -331,6 +336,7 @@ const MAP_MODS = [
   {type:'swing',   name:'Vine Swing',    icon:'🪢', desc:'Jump into it to grab on & get flung forward in a big arc', color:'#9c6b3f'},
   {type:'conveyor',name:'Conveyor',      icon:'🔀', desc:'A moving walkway that shoves you along the floor', color:'#facc4a'},
   {type:'portal',  name:'Warp Portals',  icon:'🌀', desc:'Dash into the blue portal → pop out of the purple one ahead', color:'#7be0ff'},
+  {type:'pendulum',name:'Wrecking Ball', icon:'🔨', desc:'A swinging spiked ball — TIME your run through the gap or get bonked back', color:'#9aa0a6'},
   // sky stuff — rewards flying builds
   {type:'skyring', name:'Sky Rings',    icon:'💫', desc:'A trail of boost rings up high — only flyers can cash them in', color:'#7fe7ff'},
   {type:'updraft', name:'Updraft',      icon:'🌪️', desc:'A column of rising air that lifts you toward the sky route', color:'#cfeaff'},
@@ -354,13 +360,13 @@ const SECTION_THEMES = {
   playground:{ name:'Playground',icon:'🛝', sky:['#8fd6ff','#bfe9ff','#eafaff'], ground:'#7ec85a', edge:'rgba(0,0,0,.12)', prop:'play', surface:null,
     objects:['slide','swing','bounce','spring','ladder'], roll:[1,3], good:'Bouncy & jumpy builds', weak:'Heavy, low-jump builds' },
   dungeon:   { name:'Dungeon',   icon:'🏰', sky:['#15121c','#241c2e','#3a2d44'], ground:'#3a3340', edge:'rgba(255,140,60,.25)', prop:'dungeon', surface:null,
-    objects:['lava','spikes','swing','ladder'], roll:[2,3], good:'Flyers & high-jumpers (skip the floor)', weak:'Heavy, low-jump, no-fly' },
+    objects:['lava','spikes','swing','ladder','pendulum'], roll:[2,3], good:'Flyers & high-jumpers (skip the floor)', weak:'Heavy, low-jump, no-fly' },
   ice:       { name:'Ice Cave',  icon:'❄️', sky:['#1f3a5c','#3f6e9e','#9fd0ee'], ground:'#bfe9ff', edge:'rgba(255,255,255,.45)', prop:'ice', surface:'ice',
     objects:['spikes','pit','spring','bounce','ladder'], roll:[1,2], good:'Grip Treads & flyers', weak:'Slippery shoes, no grip' },
   sky:       { name:'Sky',       icon:'🌌', sky:['#241a52','#4a3a90','#9a82e0'], ground:'#6a5acd', edge:'rgba(255,255,255,.25)', prop:'stars', surface:null,
     objects:['updraft','skyring','cannon','swing','portal'], roll:[2,3], good:'Flyers (Jetpack / Glider / Moon)', weak:'Heavy grounded builds' },
   lab:       { name:'Factory',   icon:'⚙️', sky:['#2a3340','#3f4d5e','#6b7d90'], ground:'#4a5568', edge:'rgba(120,220,255,.3)', prop:'lab',  surface:'boost',
-    objects:['boostpad','cannon','zipline','conveyor','portal','spikes'], roll:[2,3], good:'Fast ground builds & dashers', weak:'Slow / floaty builds' },
+    objects:['boostpad','cannon','zipline','conveyor','portal','spikes','pendulum'], roll:[2,3], good:'Fast ground builds & dashers', weak:'Slow / floaty builds' },
 };
 const THEME_ORDER = ['grassland','playground','dungeon','ice','sky','lab'];
 function secTheme(i){ return SECTION_THEMES[sections[i].theme] || SECTION_THEMES.grassland; }
@@ -460,19 +466,17 @@ function buildBaseLayout(){
   // the ground path (their underside sits above any reachable jump height).
   baseLayout = [];
   const HURDLE_H = 22;             // kept low so any build clears them (no traps)
-  for(const x of [1000, 2500, 3900, 5400]){
+  // procedural so it scales with TRACK_LEN: a low hurdle every ~1500px,
+  // and BIG floating platforms (alternating mid/high) every ~900px as an aerial route.
+  for(let x=1000; x<TRACK_LEN-500; x+=1500){
     baseLayout.push({x, y:GROUND_Y - HURDLE_H, w:34, h:HURDLE_H, kind:'block'});
   }
-  // BIG floating platforms at varied heights — a real aerial route. High ones (≈240px up)
-  // are flyer/high-jump territory; mid ones double as landing pads. Undersides sit above
-  // head height so ground runners pass underneath freely.
-  const plats = [
-    {x:1450, y:GROUND_Y-150, w:260}, {x:2150, y:GROUND_Y-250, w:190},
-    {x:2950, y:GROUND_Y-160, w:250}, {x:3650, y:GROUND_Y-265, w:210},
-    {x:4450, y:GROUND_Y-160, w:250}, {x:5150, y:GROUND_Y-255, w:210},
-    {x:5850, y:GROUND_Y-150, w:250},
-  ];
-  for(const p of plats) baseLayout.push({x:p.x, y:p.y, w:p.w, h:22, kind:'plat'});
+  let pi=0;
+  for(let x=1350; x<TRACK_LEN-500; x+=900){
+    const high = (pi%2===1);
+    baseLayout.push({x, y:GROUND_Y-(high?255:155), w:(high?200:250), h:22, kind:'plat'});
+    pi++;
+  }
 }
 
 function rebuildTrackObjects(){
@@ -498,8 +502,10 @@ function rebuildTrackObjects(){
   // hazard objects come from each section's chosen theme
   for(let i=0;i<NUM_SECTIONS;i++){
     const cx = i*SEC_W + SEC_W/2;
-    secMods(i).forEach((t,k)=>{
-      const off = (k-0.5)*120; // spread multiple objects in a section
+    const feats = secMods(i);
+    feats.forEach((t,k)=>{
+      // spread the section's features evenly across its (now wider) width
+      const off = SEC_W*(k+1)/(feats.length+1) - SEC_W/2;
       if(t==='spring'){
         triggers.push({type:'spring', x:cx+off-48, y:GROUND_Y-22, w:96, h:22});
       } else if(t==='spikes'){
@@ -515,6 +521,9 @@ function rebuildTrackObjects(){
       } else if(t==='conveyor'){
         // a forward-moving walkway on the floor (you can also just jump over it)
         triggers.push({type:'conveyor', x:cx+off-100, y:GROUND_Y-6, w:200, h:10, dir:1});
+      } else if(t==='pendulum'){
+        // a swinging spiked ball — h:0 so the generic AABB skips it; handled specially each frame
+        triggers.push({type:'pendulum', x:cx+off, y:GROUND_Y-210, w:0, h:0, ax:cx+off, ay:GROUND_Y-210, len:168, amp:1.15, r:28, phase:(i*1.7+k*0.9)});
       } else if(t==='portal'){
         // entry (blue) → exit (purple) ~360px ahead: a shortcut
         portals.push({ax:cx+off-150, ay:GROUND_Y-46, bx:cx+off+210, by:GROUND_Y-46, cd:0});
@@ -616,6 +625,12 @@ function aiInput(p){
     inp.abilityHeld = deadlyNear || (threat<60) || overBad || (!p.grounded && p.vy>1.2);
   } else if(ab && p.grounded && p.abilityCd<=0 && !inp.ability && !deadlyNear && Math.random()<0.01){
     inp.ability=true; // occasional flair on open ground
+  }
+  // wrecking ball: hang back while it's low & right in front, then sprint through the gap
+  for(const t of triggers){ if(t.type!=='pendulum') continue;
+    const ang=t.amp*Math.sin(raceFrame*0.042+t.phase);
+    const bx=t.ax+t.len*Math.sin(ang), by=t.ay+t.len*Math.cos(ang);
+    if(by>GROUND_Y-95 && bx>front-6 && bx<front+82){ inp.dir=0; inp.jump=false; inp.ability=false; break; }
   }
   return inp;
 }
@@ -736,9 +751,9 @@ function updatePlayer(p, started){
         p.vx = clamp(p.vx, -maxSpd*1.6, maxSpd*1.6);
         if(Math.abs(p.vx)>maxSpd && Math.sign(p.vx)===dir && !(p.grounded&&sectionHas(p.x,'boost'))) p.vx = dir*maxSpd;
       } else {
-        // friction (icy only matters on the ground)
+        // friction (icy only matters on the ground; sticky shoes stop on a dime)
         const icy = (sectionHas(p.x,'ice')||fl.slippery) && !fl.grip;
-        p.vx *= p.grounded ? (icy?0.985:0.80) : 0.97;
+        p.vx *= p.grounded ? (icy?0.985:(fl.sticky?0.55:0.80)) : 0.97;
         if(Math.abs(p.vx)<0.05) p.vx=0;
       }
       // zone forces — boost only while running on it; wind hits you everywhere
@@ -845,10 +860,20 @@ function updatePlayer(p, started){
       }
     }
   }
+  // swinging wrecking balls — TIME your run through; a hit bonks you back (no respawn)
+  for(const t of triggers){ if(t.type!=='pendulum') continue;
+    const ang = t.amp*Math.sin(raceFrame*0.042 + t.phase);
+    const bx = t.ax + t.len*Math.sin(ang), by = t.ay + t.len*Math.cos(ang);
+    const dx=(p.x+PLAYER_W/2)-bx, dy=(p.y+PLAYER_H/2)-by;
+    if(p.stun<=0 && p.invuln<=0 && dx*dx+dy*dy < (t.r+11)*(t.r+11)){
+      const sticky = p.stats.flags.sticky;
+      p.stun = sticky?10:28; p.vx = -(p.facing||1)*(sticky?2:6); p.vy=-3.5; p.fx='BONK!'; p.fxT=22; sfx(p,'wipeout'); burstP(bx,by,9,'#ffd24d',3.5,18,3);
+    }
+  }
   // banana traps — hit someone else's banana and you spin out
   for(let bi=dropped.length-1; bi>=0; bi--){ const b=dropped[bi];
     if(b.owner!==p.idx && p.invuln<=0 && p.stun<=0 && Math.abs((p.x+PLAYER_W/2)-b.x)<22 && (p.y+PLAYER_H)>b.y-30){
-      p.stun=34; p.vx*=-0.3; p.vy=-4; p.fx='SPIN OUT!'; p.fxT=28; sfx(p,'wipeout'); burstP(b.x,b.y,12,'#ffe24d',3,20,3); dropped.splice(bi,1);
+      p.stun=p.stats.flags.sticky?14:34; p.vx*=-0.3; p.vy=-4; p.fx='SPIN OUT!'; p.fxT=28; sfx(p,'wipeout'); burstP(b.x,b.y,12,'#ffe24d',3,20,3); dropped.splice(bi,1);
     }
   }
   // teleporter portals — enter A, pop out at B (a shortcut / chaos)
@@ -966,7 +991,7 @@ function raceTick(){
   // race ends when everyone's in, the 15s sudden-death clock expires, or the 70s backstop hits
   const everyone = lastFinishOrder.length>=4;
   const sudden = firstFinishFrame>=0 && (raceFrame - firstFinishFrame) >= SUDDEN_DEATH_FRAMES;
-  const timeout = raceFrame > 60*60;
+  const timeout = raceFrame > 60*85;
   if(everyone || sudden || timeout){
     // rank everyone not yet across the line by how far they got
     const left = players.filter(p=>!p.finished).sort((a,b)=>b.x-a.x);
@@ -1173,6 +1198,17 @@ function draw(){
       ctx.fillStyle='#facc4a';
       const scroll=(raceFrame*2)%28;
       for(let xx=t.x-28+scroll; xx<t.x+t.w; xx+=28){ ctx.beginPath(); ctx.moveTo(xx,t.y+1); ctx.lineTo(xx+10,t.y+t.h/2); ctx.lineTo(xx,t.y+t.h-1); ctx.lineTo(xx+4,t.y+t.h/2); ctx.closePath(); ctx.fill(); }
+    } else if(t.type==='pendulum'){
+      const ang=t.amp*Math.sin(raceFrame*0.042+t.phase);
+      const bx=t.ax+t.len*Math.sin(ang), by=t.ay+t.len*Math.cos(ang);
+      ctx.strokeStyle='#7a7f88'; ctx.lineWidth=4; ctx.beginPath(); ctx.moveTo(t.ax,t.ay); ctx.lineTo(bx,by); ctx.stroke();
+      ctx.fillStyle='#4a4f57'; ctx.beginPath(); ctx.arc(t.ax,t.ay,6,0,7); ctx.fill();
+      // spiked ball
+      ctx.strokeStyle='#6b7079'; ctx.lineWidth=5;
+      for(let a=0;a<8;a++){ const aa=a*Math.PI/4; ctx.beginPath(); ctx.moveTo(bx,by); ctx.lineTo(bx+Math.cos(aa)*(t.r+8),by+Math.sin(aa)*(t.r+8)); ctx.stroke(); }
+      ctx.fillStyle='#9aa0a6'; ctx.strokeStyle='#43474e'; ctx.lineWidth=3;
+      ctx.beginPath(); ctx.arc(bx,by,t.r,0,7); ctx.fill(); ctx.stroke();
+      ctx.fillStyle='rgba(255,255,255,.3)'; ctx.beginPath(); ctx.arc(bx-t.r*0.3,by-t.r*0.3,t.r*0.35,0,7); ctx.fill();
     } else if(t.type==='updraft'){
       ctx.save(); ctx.fillStyle='rgba(150,210,255,.22)'; ctx.fillRect(t.x,t.y,t.w,t.h);
       ctx.fillStyle='rgba(255,255,255,.55)'; ctx.font='26px Segoe UI';
