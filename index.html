@@ -337,6 +337,10 @@ const MAP_MODS = [
   {type:'conveyor',name:'Conveyor',      icon:'🔀', desc:'A moving walkway that shoves you along the floor', color:'#facc4a'},
   {type:'portal',  name:'Warp Portals',  icon:'🌀', desc:'Dash into the blue portal → pop out of the purple one ahead', color:'#7be0ff'},
   {type:'pendulum',name:'Wrecking Ball', icon:'🔨', desc:'A swinging spiked ball — TIME your run through the gap or get bonked back', color:'#9aa0a6'},
+  {type:'highroad',name:'High Road',     icon:'🛤️', desc:'A fast upper route of boost-platforms with gaps — jump up to take the risk', color:'#8fd6ff'},
+  {type:'crusher', name:'Crusher',       icon:'🔃', desc:'A stamping block — dash under it the instant it lifts', color:'#6b7079'},
+  {type:'saw',     name:'Buzzsaw',       icon:'🪚', desc:'A blade sliding back and forth — slip past when it swings away', color:'#c4c9cf'},
+  {type:'geyser',  name:'Geyser',        icon:'⛲', desc:'Erupts on a timer — ride it up to the high stuff, or get launched off-course', color:'#9fd9ff'},
   // sky stuff — rewards flying builds
   {type:'skyring', name:'Sky Rings',    icon:'💫', desc:'A trail of boost rings up high — only flyers can cash them in', color:'#7fe7ff'},
   {type:'updraft', name:'Updraft',      icon:'🌪️', desc:'A column of rising air that lifts you toward the sky route', color:'#cfeaff'},
@@ -356,17 +360,17 @@ const MAP_BY_TYPE = Object.fromEntries(MAP_MODS.map(m=>[m.type,m]));
 // or both...). `good`/`weak` spell out which builds the zone rewards or punishes.
 const SECTION_THEMES = {
   grassland: { name:'Grassland', icon:'🌳', sky:['#7fb2ee','#a9d4f5','#dff0ff'], ground:'#6ab04c', edge:'rgba(0,0,0,.12)', prop:'hills',  surface:null,
-    objects:['boostpad','spring','swing','conveyor'], roll:[1,2], good:'Sprinters & dashers', weak:'Nobody really — easy zone' },
+    objects:['boostpad','spring','swing','conveyor','highroad'], roll:[1,2], good:'Sprinters & dashers', weak:'Nobody really — easy zone' },
   playground:{ name:'Playground',icon:'🛝', sky:['#8fd6ff','#bfe9ff','#eafaff'], ground:'#7ec85a', edge:'rgba(0,0,0,.12)', prop:'play', surface:null,
-    objects:['slide','swing','bounce','spring','ladder'], roll:[1,3], good:'Bouncy & jumpy builds', weak:'Heavy, low-jump builds' },
+    objects:['slide','swing','bounce','spring','ladder','highroad'], roll:[1,3], good:'Bouncy & jumpy builds', weak:'Heavy, low-jump builds' },
   dungeon:   { name:'Dungeon',   icon:'🏰', sky:['#15121c','#241c2e','#3a2d44'], ground:'#3a3340', edge:'rgba(255,140,60,.25)', prop:'dungeon', surface:null,
-    objects:['lava','spikes','swing','ladder','pendulum'], roll:[2,3], good:'Flyers & high-jumpers (skip the floor)', weak:'Heavy, low-jump, no-fly' },
+    objects:['lava','spikes','swing','ladder','pendulum','crusher','saw'], roll:[2,3], good:'Flyers & high-jumpers (skip the floor)', weak:'Heavy, low-jump, no-fly' },
   ice:       { name:'Ice Cave',  icon:'❄️', sky:['#1f3a5c','#3f6e9e','#9fd0ee'], ground:'#bfe9ff', edge:'rgba(255,255,255,.45)', prop:'ice', surface:'ice',
-    objects:['spikes','pit','spring','bounce','ladder'], roll:[1,2], good:'Grip Treads & flyers', weak:'Slippery shoes, no grip' },
+    objects:['spring','bounce','ladder','geyser','swing','conveyor'], roll:[1,2], good:'Grip Treads (no slip!)', weak:'Slippery/roller shoes — uncontrollable' },
   sky:       { name:'Sky',       icon:'🌌', sky:['#241a52','#4a3a90','#9a82e0'], ground:'#6a5acd', edge:'rgba(255,255,255,.25)', prop:'stars', surface:null,
-    objects:['updraft','skyring','cannon','swing','portal'], roll:[2,3], good:'Flyers (Jetpack / Glider / Moon)', weak:'Heavy grounded builds' },
+    objects:['updraft','skyring','cannon','swing','portal','geyser','highroad'], roll:[2,3], good:'Flyers (Jetpack / Glider / Moon)', weak:'Heavy grounded builds' },
   lab:       { name:'Factory',   icon:'⚙️', sky:['#2a3340','#3f4d5e','#6b7d90'], ground:'#4a5568', edge:'rgba(120,220,255,.3)', prop:'lab',  surface:'boost',
-    objects:['boostpad','cannon','zipline','conveyor','portal','spikes','pendulum'], roll:[2,3], good:'Fast ground builds & dashers', weak:'Slow / floaty builds' },
+    objects:['boostpad','cannon','zipline','conveyor','portal','pendulum','crusher','saw','highroad'], roll:[2,3], good:'Fast ground builds & dashers', weak:'Slow / floaty builds' },
 };
 const THEME_ORDER = ['grassland','playground','dungeon','ice','sky','lab'];
 function secTheme(i){ return SECTION_THEMES[sections[i].theme] || SECTION_THEMES.grassland; }
@@ -375,13 +379,17 @@ function themeAtX(x){ return secTheme(sectionIndexAt(x)); }
 // HARD RULE: at most ONE respawn-hazard (lava/spikes/pit) per section — stacking two
 // deadly hazards close together creates respawn loops for disruptive builds.
 const DEADLY_FEATS = ['lava','spikes','pit'];
+const TIMED_FEATS  = ['pendulum','crusher','saw'];
+// at most ONE "major" hazard (deadly OR timed) per section — combining a knockback timed
+// hazard with a respawn hazard makes loops (e.g. a saw bonking you back into lava).
+const MAJOR_FEATS = new Set([...DEADLY_FEATS, ...TIMED_FEATS]);
 function rollFeats(key){
   const th = SECTION_THEMES[key]; if(!th) return [];
   const [mn,mx] = th.roll||[1,2];
   const n = mn + Math.floor(Math.random()*(mx-mn+1));
   let feats = deal(th.objects, Math.min(n, th.objects.length));
-  let sawDeadly=false;
-  feats = feats.filter(f=>{ if(DEADLY_FEATS.includes(f)){ if(sawDeadly) return false; sawDeadly=true; } return true; });
+  let sawMajor=false;
+  feats = feats.filter(f=>{ if(MAJOR_FEATS.has(f)){ if(sawMajor) return false; sawMajor=true; } return true; });
   if(!feats.length) feats = [th.objects[0]];
   return feats;
 }
@@ -524,6 +532,22 @@ function rebuildTrackObjects(){
       } else if(t==='pendulum'){
         // a swinging spiked ball — h:0 so the generic AABB skips it; handled specially each frame
         triggers.push({type:'pendulum', x:cx+off, y:GROUND_Y-210, w:0, h:0, ax:cx+off, ay:GROUND_Y-210, len:168, amp:1.15, r:28, phase:(i*1.7+k*0.9)});
+      } else if(t==='highroad'){
+        // BRANCH: a fast high road of boost-platforms (with gaps) above the safe low road.
+        // CHOOSE it: jump up onto the first platform (a step helps), chain the boosts &
+        // clear the gaps for a fast lap — miss a gap and you just drop back to the low road.
+        const hy=GROUND_Y-112;
+        for(const sg of [[cx+off-340,250],[cx+off+0,240],[cx+off+320,210]]){
+          solids.push({x:sg[0], y:hy, w:sg[1], h:18, kind:'plat'});
+          triggers.push({type:'boostpad', x:sg[0]+sg[1]/2-48, y:hy-16, w:96, h:16});
+        }
+      } else if(t==='crusher'){
+        triggers.push({type:'crusher', x:cx+off, y:0, w:70, h:0, ax:cx+off, topY:GROUND_Y-180, botY:GROUND_Y-40, period:128, phase:((i*41+k*27)%128)});
+      } else if(t==='saw'){
+        // a small blade sliding over a short span at ground level — JUMP over it (or time the side)
+        triggers.push({type:'saw', x:cx+off, y:0, w:0, h:0, x0:cx+off-48, x1:cx+off+48, sy:GROUND_Y-18, r:24, phase:(i*1.1+k*0.7)});
+      } else if(t==='geyser'){
+        triggers.push({type:'geyser', x:cx+off, y:0, w:62, h:0, gx:cx+off, period:120, phase:((i*37+k*23)%120), colH:180});
       } else if(t==='portal'){
         // entry (blue) → exit (purple) ~360px ahead: a shortcut
         portals.push({ax:cx+off-150, ay:GROUND_Y-46, bx:cx+off+210, by:GROUND_Y-46, cd:0});
@@ -578,6 +602,13 @@ function respawnSection(p){
   p.stun = 16; p.invuln = 60;                    // brief i-frames so you don't instantly re-die on respawn
   p.fx = 'WIPEOUT!'; p.fxT = 32;
   sfx(p, 'wipeout');
+  // The HUMAN gets NO mercy. But a CPU that keeps dying in the same section auto-burrows
+  // through it — so SOMEONE always finishes and the race never hangs. (Invisible to the
+  // player's own challenge; just keeps races ending without a 95s stall.)
+  if(p.idx>0){
+    if(p.lastRespSec===si) p.secRespawns=(p.secRespawns||0)+1; else { p.secRespawns=1; p.lastRespSec=si; }
+    if(p.secRespawns>=4){ p.drill=155; p.invuln=165; p.stun=0; p.secRespawns=0; }
+  }
 }
 // height of a slide ramp's ridable surface at world-x (short ramp up the front, long chute down)
 function slideSurfaceY(s, x){
@@ -606,7 +637,10 @@ function aiInput(p){
   // instant we spot it. `deadlyNear` flags a deadly hazard within ability range.
   let threat=999, deadlyNear=false;
   for(const s of solids){ if((s.kind==='block'||s.kind==='plat') && s.y<feet-6){ const d=s.x-front; if(d>-10 && d<threat) threat=d; } }
-  for(const t of triggers){ if(t.type==='spikes'||t.type==='lava'){ const d=t.x-front; if(d>-t.w && d<160){ if(d<threat&&d>-t.w) threat=d; if(d<80) deadlyNear=true; } } }
+  for(const t of triggers){
+    if(t.type==='spikes'||t.type==='lava'){ const d=t.x-front; if(d>-t.w && d<160){ if(d<threat&&d>-t.w) threat=d; if(d<80) deadlyNear=true; } }
+    else if(t.type==='saw'){ const sx=t.x0+(t.x1-t.x0)*(0.5+0.5*Math.sin(raceFrame*0.05+t.phase)); const d=sx-front; if(d>-28 && d<threat) threat=d; }   // jump the blade
+  }
   for(const pit of pitSpans){ const d=pit.x-front; if(d>-pit.w && d<160){ if(d<threat&&d>-pit.w) threat=d; if(d<80) deadlyNear=true; } }
 
   // jump when the threat is in the takeoff window (close enough that the arc clears it)
@@ -626,12 +660,23 @@ function aiInput(p){
   } else if(ab && p.grounded && p.abilityCd<=0 && !inp.ability && !deadlyNear && Math.random()<0.01){
     inp.ability=true; // occasional flair on open ground
   }
-  // wrecking ball: hang back while it's low & right in front, then sprint through the gap
-  for(const t of triggers){ if(t.type!=='pendulum') continue;
-    const ang=t.amp*Math.sin(raceFrame*0.042+t.phase);
-    const bx=t.ax+t.len*Math.sin(ang), by=t.ay+t.len*Math.cos(ang);
-    if(by>GROUND_Y-95 && bx>front-6 && bx<front+82){ inp.dir=0; inp.jump=false; inp.ability=false; break; }
+  // timed hazards: hang back until the danger clears — but NEVER forever. After ~45 frames
+  // of waiting, commit and barrel through (they only stun), so a CPU can't stall the race.
+  let anyBlock=false;
+  for(const t of triggers){
+    let block=false;
+    if(t.type==='pendulum'){
+      const ang=t.amp*Math.sin(raceFrame*0.042+t.phase);
+      const bx=t.ax+t.len*Math.sin(ang), by=t.ay+t.len*Math.cos(ang);
+      block = by>GROUND_Y-95 && bx>front-6 && bx<front+82;
+    } else if(t.type==='crusher'){
+      const c=(raceFrame+t.phase)%t.period;
+      block = c<t.period*0.40 && t.ax>front-4 && t.ax<front+44;
+    }
+    if(block){ anyBlock=true; break; }
   }
+  if(anyBlock){ p.aiWait=(p.aiWait||0)+1; if(p.aiWait<45){ inp.dir=0; inp.jump=false; inp.ability=false; } }
+  else p.aiWait=0;
   return inp;
 }
 
@@ -860,14 +905,31 @@ function updatePlayer(p, started){
       }
     }
   }
-  // swinging wrecking balls — TIME your run through; a hit bonks you back (no respawn)
-  for(const t of triggers){ if(t.type!=='pendulum') continue;
-    const ang = t.amp*Math.sin(raceFrame*0.042 + t.phase);
-    const bx = t.ax + t.len*Math.sin(ang), by = t.ay + t.len*Math.cos(ang);
-    const dx=(p.x+PLAYER_W/2)-bx, dy=(p.y+PLAYER_H/2)-by;
-    if(p.stun<=0 && p.invuln<=0 && dx*dx+dy*dy < (t.r+11)*(t.r+11)){
-      const sticky = p.stats.flags.sticky;
-      p.stun = sticky?10:28; p.vx = -(p.facing||1)*(sticky?2:6); p.vy=-3.5; p.fx='BONK!'; p.fxT=22; sfx(p,'wipeout'); burstP(bx,by,9,'#ffd24d',3.5,18,3);
+  // TIMED HAZARDS — all stun-based (never respawn), so you TIME them instead of holding forward
+  const sticky = p.stats.flags.sticky;
+  for(const t of triggers){
+    if(t.type==='pendulum'){
+      const ang = t.amp*Math.sin(raceFrame*0.042 + t.phase);
+      const bx = t.ax + t.len*Math.sin(ang), by = t.ay + t.len*Math.cos(ang);
+      const dx=(p.x+PLAYER_W/2)-bx, dy=(p.y+PLAYER_H/2)-by;
+      if(p.stun<=0 && p.invuln<=0 && dx*dx+dy*dy < (t.r+11)*(t.r+11)){
+        p.stun = sticky?10:28; p.vx = -(p.facing||1)*(sticky?2:6); p.vy=-3.5; p.fx='BONK!'; p.fxT=22; sfx(p,'wipeout'); burstP(bx,by,9,'#ffd24d',3.5,18,3);
+      }
+    } else if(t.type==='crusher'){
+      const c=(raceFrame+t.phase)%t.period, down = c < t.period*0.32;
+      if(down && p.stun<=0 && p.invuln<=0 && Math.abs((p.x+PLAYER_W/2)-t.ax)<t.w/2+5 && (p.y+PLAYER_H)>t.botY){
+        p.stun = sticky?10:24; p.vx=-(p.facing||1)*3; p.fx='SQUISH!'; p.fxT=20; sfx(p,'poundhit'); burstP(t.ax,GROUND_Y-6,8,'#caa',3,16,3);
+      }
+    } else if(t.type==='saw'){
+      const sx=t.x0+(t.x1-t.x0)*(0.5+0.5*Math.sin(raceFrame*0.05+t.phase));
+      if(p.stun<=0 && p.invuln<=0 && Math.abs((p.x+PLAYER_W/2)-sx)<t.r+8 && Math.abs((p.y+PLAYER_H)-t.sy)<t.r+16){
+        p.stun = sticky?10:24; p.vx=-(p.facing||1)*5; p.vy=-3; p.fx='OUCH!'; p.fxT=20; sfx(p,'spikes'); burstP(sx,t.sy,8,'#ffcc4d',3,16,3);
+      }
+    } else if(t.type==='geyser'){
+      const g=(raceFrame+t.phase)%t.period, erupting = g < t.period*0.26;
+      if(erupting && p.padCd<=0 && Math.abs((p.x+PLAYER_W/2)-t.gx)<t.w/2+4 && (p.y+PLAYER_H)>GROUND_Y-t.colH){
+        p.vy=-19; p.grounded=false; p.padCd=22; p.fx='WHOOSH!'; p.fxT=18; sfx(p,'spring');
+      }
     }
   }
   // banana traps — hit someone else's banana and you spin out
@@ -991,7 +1053,7 @@ function raceTick(){
   // race ends when everyone's in, the 15s sudden-death clock expires, or the 70s backstop hits
   const everyone = lastFinishOrder.length>=4;
   const sudden = firstFinishFrame>=0 && (raceFrame - firstFinishFrame) >= SUDDEN_DEATH_FRAMES;
-  const timeout = raceFrame > 60*85;
+  const timeout = raceFrame > 60*95;
   if(everyone || sudden || timeout){
     // rank everyone not yet across the line by how far they got
     const left = players.filter(p=>!p.finished).sort((a,b)=>b.x-a.x);
@@ -1209,6 +1271,30 @@ function draw(){
       ctx.fillStyle='#9aa0a6'; ctx.strokeStyle='#43474e'; ctx.lineWidth=3;
       ctx.beginPath(); ctx.arc(bx,by,t.r,0,7); ctx.fill(); ctx.stroke();
       ctx.fillStyle='rgba(255,255,255,.3)'; ctx.beginPath(); ctx.arc(bx-t.r*0.3,by-t.r*0.3,t.r*0.35,0,7); ctx.fill();
+    } else if(t.type==='crusher'){
+      const c=(raceFrame+t.phase)%t.period, down=c<t.period*0.32, cy = down?t.botY:t.topY;
+      ctx.fillStyle='rgba(0,0,0,.18)'; ctx.fillRect(t.ax-4, t.topY-60, 8, (cy-(t.topY-60)));   // shaft
+      ctx.fillStyle='#6b7079'; roundRect(t.ax-t.w/2, cy, t.w, 54, 5); ctx.fill();
+      ctx.fillStyle='#43474e'; for(let sx2=t.ax-t.w/2+5; sx2<t.ax+t.w/2-8; sx2+=14){ ctx.beginPath(); ctx.moveTo(sx2,cy+54); ctx.lineTo(sx2+7,cy+44); ctx.lineTo(sx2+14,cy+54); ctx.closePath(); ctx.fill(); }
+      ctx.fillStyle='#ffcc4d'; ctx.fillRect(t.ax-t.w/2, cy+4, t.w, 4);
+    } else if(t.type==='saw'){
+      const sx2=t.x0+(t.x1-t.x0)*(0.5+0.5*Math.sin(raceFrame*0.05+t.phase));
+      ctx.strokeStyle='rgba(255,255,255,.15)'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(t.x0,t.sy); ctx.lineTo(t.x1,t.sy); ctx.stroke();
+      ctx.save(); ctx.translate(sx2, t.sy); ctx.rotate(raceFrame*0.3);
+      ctx.fillStyle='#9aa0a6'; for(let a=0;a<10;a++){ const aa=a*Math.PI/5; ctx.beginPath(); ctx.moveTo(Math.cos(aa)*t.r,Math.sin(aa)*t.r); ctx.lineTo(Math.cos(aa+0.18)*(t.r+9),Math.sin(aa+0.18)*(t.r+9)); ctx.lineTo(Math.cos(aa+0.36)*t.r,Math.sin(aa+0.36)*t.r); ctx.closePath(); ctx.fill(); }
+      ctx.fillStyle='#c4c9cf'; ctx.beginPath(); ctx.arc(0,0,t.r,0,7); ctx.fill();
+      ctx.fillStyle='#5a5f68'; ctx.beginPath(); ctx.arc(0,0,7,0,7); ctx.fill();
+      ctx.restore();
+    } else if(t.type==='geyser'){
+      const g=(raceFrame+t.phase)%t.period, erupting=g<t.period*0.26;
+      ctx.fillStyle='#3a3540'; roundRect(t.gx-t.w/2, GROUND_Y-10, t.w, 14, 3); ctx.fill();
+      if(erupting){
+        const h=t.colH*(0.7+0.3*Math.sin(g/(t.period*0.26)*Math.PI));
+        const grd=ctx.createLinearGradient(0,GROUND_Y-h,0,GROUND_Y); grd.addColorStop(0,'rgba(190,230,255,.15)'); grd.addColorStop(1,'rgba(150,210,255,.75)');
+        ctx.fillStyle=grd; ctx.fillRect(t.gx-t.w/2+6, GROUND_Y-h, t.w-12, h);
+      } else {
+        ctx.fillStyle='#6cf'; ctx.font='13px Segoe UI Emoji'; ctx.textAlign='center'; ctx.fillText('💧', t.gx, GROUND_Y-12); ctx.textAlign='left';
+      }
     } else if(t.type==='updraft'){
       ctx.save(); ctx.fillStyle='rgba(150,210,255,.22)'; ctx.fillRect(t.x,t.y,t.w,t.h);
       ctx.fillStyle='rgba(255,255,255,.55)'; ctx.font='26px Segoe UI';
