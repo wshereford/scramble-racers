@@ -275,6 +275,7 @@ const POOLS = {
     {name:'Spring Helmet',  icon:'🌀', desc:'Auto-hop every time you land', mods:{autohop:true}},
     {name:'Rocket Helmet',  icon:'🚀', desc:'Automatic upward thrust every ~2s', mods:{rocket:true}},
     {name:'Feather Crown',  icon:'🪶', desc:'Slow, gentle falls (low terminal speed)', mods:{fallcap:7}},
+    {name:'Magnet Helmet',  icon:'🧲', desc:'Auto-homes toward boosts ahead (pads / rings / cannons)', mods:{magnet:true}},
   ],
   gravity: [
     {name:'Moon Gravity',   icon:'🌙', desc:'Very low gravity — huge floaty jumps', mods:{gravity:0.6}},
@@ -289,6 +290,7 @@ const POOLS = {
     {name:'Grip Treads',    icon:'🧦', desc:'Immune to ice & slippery surfaces', mods:{grip:true}},
     {name:'Roller Skates',  icon:'🛼', desc:'Run ×1.4 but always slippery', mods:{speed:1.4, slippery:true}},
     {name:'Moon Boots',     icon:'👢', desc:'Jump ×1.2, gravity ×0.85', mods:{jump:1.2, gravity:0.85}},
+    {name:'Rocket Skates',  icon:'🛼', desc:'Run ×1.15 + constant forward thrust — fast but hard to brake!', mods:{speed:1.15, thrust:true}},
   ],
   ability: [
     {name:'Dash',        icon:'💨', desc:'SPACE: burst forward', mods:{ability:'dash'}},
@@ -298,12 +300,14 @@ const POOLS = {
     {name:'Blink',       icon:'✨', desc:'SPACE: teleport a short hop forward', mods:{ability:'blink'}},
     {name:'Super Jump',  icon:'🦘', desc:'SPACE on ground: launch sky-high', mods:{ability:'superjump'}},
     {name:'Afterburner', icon:'🔥', desc:'SPACE: MONSTER forward rocket — but you can\'t steer or brake. Pure risk.', mods:{ability:'burner'}},
+    {name:'Drill',       icon:'⛏️', desc:'SPACE: BURROW through the stage — phase under hazards & tunnel forward!', mods:{ability:'drill'}},
+    {name:'Grapple Hook',icon:'🪝', desc:'SPACE: fire a hook & yank yourself up-and-forward across gaps', mods:{ability:'grapple'}},
   ],
 };
 const SLOT_ORDER = ['helmet','gravity','shoes','ability'];
 const SLOT_LABEL = {helmet:'Helmet', gravity:'Gravity', shoes:'Shoes', ability:'Ability'};
 // emoji shown above a character's head for each helmet
-const HELMET_ICON = {'Balloon Helmet':'🎈','Lead Helmet':'🪨','Propeller Helmet':'🚁','Glider Wings':'🦅','Spring Helmet':'🌀','Rocket Helmet':'🚀','Feather Crown':'👑'};
+const HELMET_ICON = {'Balloon Helmet':'🎈','Lead Helmet':'🪨','Propeller Helmet':'🚁','Glider Wings':'🦅','Spring Helmet':'🌀','Rocket Helmet':'🚀','Feather Crown':'👑','Magnet Helmet':'🧲'};
 
 // map modifiers.  surfaceGrounded types (ice/sand/mud/boost) ONLY apply while you're
 // standing on them — flying/gliding over them is a legit way around.  wind hits you in the air too.
@@ -322,6 +326,7 @@ const MAP_MODS = [
   {type:'cannon',  name:'Launch Cannon',icon:'💣', desc:'Blasts you in a huge arc down the track', color:'#ff7b00'},
   {type:'zipline', name:'Speed Rings',  icon:'💠', desc:'A row of rings — fly through for repeated boosts', color:'#42f5b0'},
   {type:'ladder',  name:'Ladder & Perch',icon:'🪜',desc:'Climb (or fly!) to a high perch with a launch reward on top', color:'#b07a3c'},
+  {type:'swing',   name:'Vine Swing',    icon:'🪢', desc:'Jump into it to grab on & get flung forward in a big arc', color:'#9c6b3f'},
   // sky stuff — rewards flying builds
   {type:'skyring', name:'Sky Rings',    icon:'💫', desc:'A trail of boost rings up high — only flyers can cash them in', color:'#7fe7ff'},
   {type:'updraft', name:'Updraft',      icon:'🌪️', desc:'A column of rising air that lifts you toward the sky route', color:'#cfeaff'},
@@ -336,17 +341,42 @@ const MAP_BY_TYPE = Object.fromEntries(MAP_MODS.map(m=>[m.type,m]));
 // The track is a row of themed sections. Each theme draws its own backdrop, sets a
 // ground SURFACE, and places its own HAZARD set. Players re-theme sections in the
 // Scramble phase. `objects` are placed as triggers; `surface` is a grounded zone effect.
+// Each theme has a feature POOL; when a section gets a theme it rolls a RANDOM SUBSET
+// (roll:[min,max]) of that pool — so the same theme varies run to run (slide, or swing,
+// or both...). `good`/`weak` spell out which builds the zone rewards or punishes.
 const SECTION_THEMES = {
-  grassland: { name:'Grassland', icon:'🌳', sky:['#7fb2ee','#a9d4f5','#dff0ff'], ground:'#6ab04c', edge:'rgba(0,0,0,.12)', prop:'hills',  surface:null,   objects:['boostpad','spring'] },
-  playground:{ name:'Playground',icon:'🛝', sky:['#8fd6ff','#bfe9ff','#eafaff'], ground:'#7ec85a', edge:'rgba(0,0,0,.12)', prop:'play', surface:null, objects:['slide','bounce','spring'] },
-  dungeon:   { name:'Dungeon',   icon:'🏰', sky:['#15121c','#241c2e','#3a2d44'], ground:'#3a3340', edge:'rgba(255,140,60,.25)', prop:'dungeon', surface:null, objects:['lava','spikes'] },
-  ice:       { name:'Ice Cave',  icon:'❄️', sky:['#1f3a5c','#3f6e9e','#9fd0ee'], ground:'#bfe9ff', edge:'rgba(255,255,255,.45)', prop:'ice', surface:'ice',  objects:['spikes','pit'] },
-  sky:       { name:'Sky',       icon:'🌌', sky:['#241a52','#4a3a90','#9a82e0'], ground:'#6a5acd', edge:'rgba(255,255,255,.25)', prop:'stars', surface:null, objects:['updraft','skyring','cannon'] },
-  lab:       { name:'Factory',   icon:'⚙️', sky:['#2a3340','#3f4d5e','#6b7d90'], ground:'#4a5568', edge:'rgba(120,220,255,.3)', prop:'lab',  surface:'boost', objects:['boostpad','cannon','zipline'] },
+  grassland: { name:'Grassland', icon:'🌳', sky:['#7fb2ee','#a9d4f5','#dff0ff'], ground:'#6ab04c', edge:'rgba(0,0,0,.12)', prop:'hills',  surface:null,
+    objects:['boostpad','spring','swing'], roll:[1,2], good:'Sprinters & dashers', weak:'Nobody really — easy zone' },
+  playground:{ name:'Playground',icon:'🛝', sky:['#8fd6ff','#bfe9ff','#eafaff'], ground:'#7ec85a', edge:'rgba(0,0,0,.12)', prop:'play', surface:null,
+    objects:['slide','swing','bounce','spring'], roll:[1,3], good:'Bouncy & jumpy builds', weak:'Heavy, low-jump builds' },
+  dungeon:   { name:'Dungeon',   icon:'🏰', sky:['#15121c','#241c2e','#3a2d44'], ground:'#3a3340', edge:'rgba(255,140,60,.25)', prop:'dungeon', surface:null,
+    objects:['lava','spikes','swing'], roll:[2,3], good:'Flyers & high-jumpers (skip the floor)', weak:'Heavy, low-jump, no-fly' },
+  ice:       { name:'Ice Cave',  icon:'❄️', sky:['#1f3a5c','#3f6e9e','#9fd0ee'], ground:'#bfe9ff', edge:'rgba(255,255,255,.45)', prop:'ice', surface:'ice',
+    objects:['spikes','pit','spring','bounce'], roll:[1,2], good:'Grip Treads & flyers', weak:'Slippery shoes, no grip' },
+  sky:       { name:'Sky',       icon:'🌌', sky:['#241a52','#4a3a90','#9a82e0'], ground:'#6a5acd', edge:'rgba(255,255,255,.25)', prop:'stars', surface:null,
+    objects:['updraft','skyring','cannon','swing'], roll:[2,3], good:'Flyers (Jetpack / Glider / Moon)', weak:'Heavy grounded builds' },
+  lab:       { name:'Factory',   icon:'⚙️', sky:['#2a3340','#3f4d5e','#6b7d90'], ground:'#4a5568', edge:'rgba(120,220,255,.3)', prop:'lab',  surface:'boost',
+    objects:['boostpad','cannon','zipline','spikes'], roll:[2,3], good:'Fast ground builds & dashers', weak:'Slow / floaty builds' },
 };
 const THEME_ORDER = ['grassland','playground','dungeon','ice','sky','lab'];
 function secTheme(i){ return SECTION_THEMES[sections[i].theme] || SECTION_THEMES.grassland; }
 function themeAtX(x){ return secTheme(sectionIndexAt(x)); }
+// roll a random subset of a theme's feature pool.
+// HARD RULE: at most ONE respawn-hazard (lava/spikes/pit) per section — stacking two
+// deadly hazards close together creates respawn loops for disruptive builds.
+const DEADLY_FEATS = ['lava','spikes','pit'];
+function rollFeats(key){
+  const th = SECTION_THEMES[key]; if(!th) return [];
+  const [mn,mx] = th.roll||[1,2];
+  const n = mn + Math.floor(Math.random()*(mx-mn+1));
+  let feats = deal(th.objects, Math.min(n, th.objects.length));
+  let sawDeadly=false;
+  feats = feats.filter(f=>{ if(DEADLY_FEATS.includes(f)){ if(sawDeadly) return false; sawDeadly=true; } return true; });
+  if(!feats.length) feats = [th.objects[0]];
+  return feats;
+}
+// (re)assign a section's theme AND roll fresh features for it
+function setTheme(i, key){ sections[i] = {theme:key, feats: rollFeats(key)}; }
 
 //////////////////// UTIL ////////////////////
 function deal(pool, n=3){
@@ -386,8 +416,8 @@ function newPlayer(i){
     idx:i, name:NAMES[i], color:COLORS[i],
     build:{}, stats:null, points:0,
     x:60 + i*6, y:GROUND_Y-PLAYER_H, vx:0, vy:0,
-    grounded:false, djumpUsed:false, dash:0, burn:0, pounding:false, onSlide:null, abilityCd:0, abilityCdMax:1, abBuffer:0, flapCd:0, climbing:false, ladderCd:0,
-    stun:0, invuln:0, padCd:0,
+    grounded:false, djumpUsed:false, dash:0, burn:0, drill:0, pounding:false, onSlide:null, abilityCd:0, abilityCdMax:1, abBuffer:0, flapCd:0, climbing:false, ladderCd:0,
+    stun:0, invuln:0, padCd:0, secRespawns:0, lastRespSec:-1,
     fx:'', fxT:0, rocketT:0, finished:false, finishTime:0, place:0, speedJitter:0.96+Math.random()*0.09,
     aiJumpCd:0
   };
@@ -397,7 +427,8 @@ function newPlayer(i){
 const START_THEMES = ['grassland','playground','dungeon','ice','sky'];
 function resetMatch(){
   players = [0,1,2,3].map(newPlayer);
-  sections = Array.from({length:NUM_SECTIONS},(_,i)=>({theme: START_THEMES[i % START_THEMES.length]}));
+  sections = new Array(NUM_SECTIONS);
+  for(let i=0;i<NUM_SECTIONS;i++) setTheme(i, START_THEMES[i % START_THEMES.length]);
   raceNum = 0;
 }
 
@@ -463,6 +494,9 @@ function rebuildTrackObjects(){
         for(let j=0;j<3;j++){
           triggers.push({type:'bounce', x:i*SEC_W + (j+1)*SEC_W/4 - 42, y:GROUND_Y-14, w:84, h:14});
         }
+      } else if(t==='swing'){
+        // a vine hanging at mid-height — jump into it to get flung forward in a big arc
+        triggers.push({type:'swing', x:cx+off-22, y:GROUND_Y-135, w:44, h:86});
       } else if(t==='boostpad'){
         triggers.push({type:'boostpad', x:cx+off-48, y:GROUND_Y-16, w:96, h:16});
       } else if(t==='slide'){
@@ -496,22 +530,31 @@ function rebuildTrackObjects(){
   }
 }
 
-// effective hazard list for a section = its theme's surface + object hazards
+// effective hazard list for a section = its theme's surface + its ROLLED features
 function secMods(i){
   const t = secTheme(i);
-  return (t.surface ? [t.surface] : []).concat(t.objects);
+  const feats = (sections[i] && sections[i].feats) || t.objects;
+  return (t.surface ? [t.surface] : []).concat(feats);
 }
 function sectionIndexAt(x){ return clamp(Math.floor(x/SEC_W),0,NUM_SECTIONS-1); }
 function sectionHas(x,type){ return secMods(sectionIndexAt(x)).includes(type); }
 // respawn a racer at the very start of their current section (lava/spikes/falling penalty)
 function respawnSection(p){
   const si = sectionIndexAt(p.x + PLAYER_W/2);
+  if(p.lastRespSec===si) p.secRespawns=(p.secRespawns||0)+1; else { p.secRespawns=1; p.lastRespSec=si; }
   p.x = si*SEC_W + 24; p.y = GROUND_Y - PLAYER_H;
   p.vx = 0; p.vy = 0; p.grounded = true; p.onSlide = null;
-  p.dash = 0; p.burn = 0; p.pounding = false; p.climbing = false;
+  p.dash = 0; p.burn = 0; p.drill = 0; p.pounding = false; p.climbing = false;
   p.stun = 18; p.invuln = 70;                    // brief mercy invuln so you don't instantly re-die
   p.fx = 'WIPEOUT!'; p.fxT = 32;
   sfx(p, 'wipeout');
+  // MERCY: wiped out 3+ times in the SAME section → auto-burrow straight through the death
+  // zone (reuses the drill). Keeps hazards brutally punishing without ever being a hard loop.
+  if(p.secRespawns >= 3){
+    p.drill = 140; p.invuln = 155; p.stun = 0;
+    p.fx = 'TUNNEL!'; p.fxT = 44;
+    p.secRespawns = 0;
+  }
 }
 // height of a slide ramp's ridable surface at world-x (short ramp up the front, long chute down)
 function slideSurfaceY(s, x){
@@ -587,10 +630,12 @@ function doAbility(p){
   else if(ab==='pound'){ if(!p.grounded){ p.vy = 28; p.pounding=true; fx('POUND!',0,'pound'); return true; } }                  // slam → forward burst on landing
   else if(ab==='superjump'){ if(p.grounded){ p.vy = -JUMP_V*p.stats.jump*2.3; p.grounded=false; fx('LAUNCH!',42,'superjump'); return true; } }
   else if(ab==='burner'){ if(p.abilityCd<=0){ p.burn=34; p.grounded=false; p.vy=Math.min(p.vy,-2); fx('AFTERBURNER!',95,'burner'); return true; } } // locked rocket — no steering!
+  else if(ab==='drill'){ if(p.abilityCd<=0){ p.drill=46; p.invuln=Math.max(p.invuln,46); fx('DIG!',85,'pound'); return true; } }   // burrow through the stage, phasing hazards
+  else if(ab==='grapple'){ if(p.abilityCd<=0){ p.vy=-12.5; p.vx=(p.facing||1)*20; p.grounded=false; p.invuln=Math.max(p.invuln,14); fx('GRAPPLE!',70,'blink'); return true; } } // yank up & across
   // djump is handled in the jump logic (it's bound to the JUMP key, not SHIFT)
   return false;
 }
-const ABILITY_KEY = {dash:'SPACE', flap:'SPACE (hold to fly)', blink:'SPACE', pound:'SPACE (mid-air)', superjump:'SPACE (on ground)', burner:'SPACE (locked rocket!)', djump:'JUMP again mid-air'};
+const ABILITY_KEY = {dash:'SPACE', flap:'SPACE (hold to fly)', blink:'SPACE', pound:'SPACE (mid-air)', superjump:'SPACE (on ground)', burner:'SPACE (locked rocket!)', drill:'SPACE (burrow!)', grapple:'SPACE (hook!)', djump:'JUMP again mid-air'};
 
 function updatePlayer(p, started){
   if(p.finished){ // glide to a stop past the line
@@ -620,9 +665,17 @@ function updatePlayer(p, started){
       p.vy = Math.min(p.vy, 0) - 7.2; p.grounded=false; p.flapCd=9; p.fx='🔥'; p.fxT=8; sfx(p,'flap');
     }
 
+    // DRILL: burrow through the stage — phase under everything, tunnel forward at ground level
+    if(p.drill>0){
+      const maxSpd = BASE_SPEED * st.speed * p.speedJitter;
+      p.vx = (p.facing||1) * maxSpd * 2.3; p.vy = 0;
+      p.y = GROUND_Y - PLAYER_H + 9;     // sunk into the dirt
+      p.grounded = false;
+      if(p.idx===0 && raceFrame%5===0) sfx(p,'slidewhoosh');
+    }
     // climbing a ladder: hold JUMP/UP to go up. Reaching the top auto-launches you
     // forward off the perch (the reward), then briefly ignores the ladder so you don't re-grab.
-    if(ladder && inp.jumpHeld){
+    else if(ladder && inp.jumpHeld){
       if(p.y <= ladder.y + 4){
         // reached the perch top → fling forward & up
         p.vy = -12; p.vx = (p.facing||1)*14; p.climbing=false; p.ladderCd=45; p.fx='🚀'; p.fxT=18;
@@ -660,6 +713,18 @@ function updatePlayer(p, started){
       if(p.grounded && sectionHas(p.x,'boost')) p.vx = clamp(p.vx+0.7, -maxSpd*2, maxSpd*2.4);
       if(sectionHas(p.x,'wind'))  p.vx -= 0.42;
 
+      // Rocket Skates: constant forward thrust unless you're actively braking (press back)
+      if(fl.thrust && inp.dir>=0 && p.burn<=0 && p.dash<=0){ p.vx = clamp(p.vx + (p.facing||1)*0.28, -maxSpd*1.7, maxSpd*1.7); }
+      // Magnet Helmet: home toward the nearest boost ahead of you
+      if(fl.magnet){
+        let best=null, bd=320;
+        for(const t of triggers){
+          if((t.type==='boostpad'||t.type==='cannon'||t.type==='zipline'||t.type==='skyring'||t.type==='spring')
+             && t.x>p.x && t.x-p.x<bd){ bd=t.x-p.x; best=t; }
+        }
+        if(best){ p.vx += 0.4; }   // gentle forward tug toward the boost
+      }
+
       // jump
       if(inp.jump){
         if(p.grounded){ p.vy = -JUMP_V*st.jump; p.grounded=false; p.djumpUsed=false; sfx(p,'jump'); }
@@ -671,8 +736,8 @@ function updatePlayer(p, started){
   // rocket helmet
   if(fl.rocket){ p.rocketT++; if(p.rocketT>=120){ p.rocketT=0; p.vy = -9; } }
 
-  // gravity (suspended while actively climbing)
-  if(!p.climbing){
+  // gravity (suspended while actively climbing or burrowing)
+  if(!p.climbing && p.drill<=0){
     p.vy += BASE_GRAV*st.gravity;
     // glide — hold JUMP while falling to drift down slowly
     if(fl.glide && inp.jumpHeld && p.vy>0) p.vy = Math.min(p.vy, 1.8);
@@ -740,6 +805,9 @@ function updatePlayer(p, started){
       } else if(t.type==='updraft'){
         // rising air column: strong lift while inside (great for getting up to the sky route)
         p.vy -= 1.15; if(p.vy < -9) p.vy = -9; p.grounded=false;
+      } else if(t.type==='swing'){
+        // grab the vine → flung forward in a big pendulum arc
+        if(p.padCd<=0){ p.vy=-13; p.vx=fwd*Math.max(Math.abs(p.vx),14); p.grounded=false; p.padCd=26; p.fx='SWING!'; p.fxT=18; sfx(p,'spring'); }
       }
     }
   }
@@ -751,6 +819,7 @@ function updatePlayer(p, started){
   if(p.abBuffer>0) p.abBuffer--;
   if(p.flapCd>0) p.flapCd--;
   if(p.ladderCd>0) p.ladderCd--;
+  if(p.drill>0) p.drill--;
   if(p.fxT>0) p.fxT--;
 
   // bounds
@@ -773,14 +842,14 @@ function updatePlayer(p, started){
 }
 
 function moveAndCollide(p){
-  // while climbing a ladder, phase through platforms/blocks so you always reach the top
-  const phase = p.climbing;
+  const skipAll  = p.drill>0;     // burrowing: ignore ALL collision (incl. the ground)
+  const skipPlat = p.climbing;    // climbing: ignore platforms/blocks only
   // horizontal
   const STEP_H = 24; // ledges this short are auto-stepped (never block you)
   p.x += p.vx;
   let box = {x:p.x,y:p.y,w:PLAYER_W,h:PLAYER_H};
   for(const s of solids){
-    if(phase && s.kind) continue;
+    if(skipAll || (skipPlat && s.kind)) continue;
     if(aabb(box,s)){
       const feet = p.y+PLAYER_H;
       // if it's just a small step up, climb onto it instead of stopping dead
@@ -798,7 +867,7 @@ function moveAndCollide(p){
   box = {x:p.x,y:p.y,w:PLAYER_W,h:PLAYER_H};
   p.grounded=false;
   for(const s of solids){
-    if(phase && s.kind) continue;
+    if(skipAll || (skipPlat && s.kind)) continue;
     if(aabb(box,s)){
       if(p.vy>0){ p.y = s.y - PLAYER_H; p.vy=0; p.grounded=true; }
       else if(p.vy<0){ p.y = s.y + s.h; p.vy=0; }
@@ -819,7 +888,7 @@ function startRace(){
   players.forEach((p,i)=>{
     p.stats = computeStats(p.build);
     p.x = 60 + i*6; p.y = GROUND_Y-PLAYER_H; p.vx=0; p.vy=0;
-    p.grounded=true; p.djumpUsed=false; p.dash=0; p.burn=0; p.pounding=false; p.onSlide=null; p.abilityCd=0; p.abBuffer=0; p.flapCd=0; p.climbing=false; p.ladderCd=0; p.stun=0; p.invuln=0; p.padCd=0; p.fx=''; p.fxT=0;
+    p.grounded=true; p.djumpUsed=false; p.dash=0; p.burn=0; p.drill=0; p.pounding=false; p.onSlide=null; p.abilityCd=0; p.abBuffer=0; p.flapCd=0; p.climbing=false; p.ladderCd=0; p.stun=0; p.invuln=0; p.padCd=0; p.secRespawns=0; p.lastRespSec=-1; p.fx=''; p.fxT=0;
     p.rocketT=0; p.finished=false; p.place=0; p.facing=1; p.aiJumpCd=0;
     p.speedJitter = i===0?1.0:(0.95+Math.random()*0.09);
   });
@@ -1052,6 +1121,15 @@ function draw(){
       ctx.moveTo(t.x+t.w-3,t.y); ctx.lineTo(t.x+t.w-3,t.y+t.h);
       for(let ry=t.y+8; ry<t.y+t.h; ry+=14){ ctx.moveTo(t.x+3,ry); ctx.lineTo(t.x+t.w-3,ry); }
       ctx.stroke();
+    } else if(t.type==='swing'){
+      // a vine swaying from above with a handle knot at the bottom
+      const cx=t.x+t.w/2, sway=Math.sin((raceFrame+t.x)*0.05)*8;
+      ctx.strokeStyle='#5e8a3a'; ctx.lineWidth=4;
+      ctx.beginPath(); ctx.moveTo(cx, t.y-40);
+      ctx.quadraticCurveTo(cx+sway, t.y+t.h*0.5, cx+sway, t.y+t.h-6); ctx.stroke();
+      ctx.fillStyle='#7a4a26'; ctx.beginPath(); ctx.arc(cx+sway, t.y+t.h-4, 8, 0, 7); ctx.fill();
+      ctx.fillStyle='#b9802f'; ctx.font='15px Segoe UI Emoji'; ctx.textAlign='center';
+      ctx.fillText('🪢', cx+sway, t.y+t.h+1); ctx.textAlign='left';
     }
   }
 
@@ -1099,6 +1177,11 @@ function drawPlayer(p){
 
   // ground shadow
   if(!air){ ctx.fillStyle='rgba(0,0,0,.18)'; ctx.beginPath(); ctx.ellipse(p.x+PLAYER_W/2, GROUND_Y-2, 16, 5, 0, 0, 7); ctx.fill(); }
+  // dirt spray while burrowing
+  if(p.drill>0){
+    ctx.fillStyle='#6e4a2c';
+    for(let k=0;k<6;k++){ const a=(raceFrame*0.35+k*1.7); ctx.beginPath(); ctx.arc(p.x+PLAYER_W/2 - dir*(4+k*5), GROUND_Y-3-Math.abs(Math.sin(a))*9, 3.2,0,7); ctx.fill(); }
+  }
 
   ctx.save();
   ctx.translate(p.x+PLAYER_W/2, p.y+PLAYER_H); // anchor at feet center
@@ -1130,16 +1213,33 @@ function drawPlayer(p){
   ctx.restore();
 
   const headTop = p.y + PLAYER_H - h;
+  const mx = p.x+PLAYER_W/2;
   // helmet emoji sitting on the head
   const hi = (p.build && p.build.helmet) ? HELMET_ICON[p.build.helmet.name] : null;
   if(hi){
     ctx.save(); ctx.textAlign='center'; ctx.font='18px Segoe UI Emoji';
-    ctx.fillText(hi, p.x+PLAYER_W/2, headTop + 11);
+    ctx.fillText(hi, mx, headTop + 11);
     ctx.restore();
   }
-  // name tag floats above the helmet
-  ctx.fillStyle = p.idx===0 ? 'rgba(150,100,0,.9)':'rgba(0,0,0,.5)'; ctx.textAlign='center'; ctx.font='bold 11px Segoe UI';
-  ctx.fillText(p.name, p.x+PLAYER_W/2, headTop-16); ctx.textAlign='left';
+  // shoes worn on the feet (small, on the character itself)
+  if(p.build && p.build.shoes){
+    ctx.save(); ctx.textAlign='center'; ctx.font='12px Segoe UI Emoji';
+    ctx.fillText(p.build.shoes.icon, mx + dir*5, p.y+PLAYER_H+4);
+    ctx.restore();
+  }
+  // loadout chip above the head — full build at a glance (helmet · gravity · shoes · ability)
+  if(p.build && p.build.ability){
+    const ic=[ (HELMET_ICON[p.build.helmet.name]||p.build.helmet.icon), p.build.gravity.icon, p.build.shoes.icon, p.build.ability.icon ];
+    const py = headTop-22, cw=ic.length*16+8;
+    ctx.save();
+    ctx.fillStyle='rgba(10,16,30,.55)'; roundRect(mx-cw/2, py-12, cw, 17, 5); ctx.fill();
+    ctx.textAlign='center'; ctx.font='12px Segoe UI Emoji';
+    ic.forEach((g,k)=> ctx.fillText(g, mx - cw/2 + 12 + k*16, py));
+    ctx.restore();
+  }
+  // name tag above the chip
+  ctx.fillStyle = p.idx===0 ? '#ffd24d' : 'rgba(255,255,255,.8)'; ctx.textAlign='center'; ctx.font='bold 11px Segoe UI';
+  ctx.fillText(p.name, mx, headTop-30); ctx.textAlign='left';
   // ability/feedback popup text
   if(p.fxT>0 && p.fx){
     ctx.globalAlpha = Math.min(1, p.fxT/12);
@@ -1327,9 +1427,11 @@ function showEscalation(){
   const mc=$('escModCards'); mc.innerHTML='';
   dealtT.forEach(key=>{
     const th=SECTION_THEMES[key];
-    const haz=(th.surface?MAP_BY_TYPE[th.surface].name+' floor · ':'')+th.objects.map(t=>MAP_BY_TYPE[t]?MAP_BY_TYPE[t].name:t).join(', ');
+    const feats=(th.surface?'<b>'+MAP_BY_TYPE[th.surface].name+'</b> floor · ':'')+th.objects.map(t=>(MAP_BY_TYPE[t]?MAP_BY_TYPE[t].icon+' '+MAP_BY_TYPE[t].name:t)).join(', ');
     const c=document.createElement('div'); c.className='card';
-    c.innerHTML=`<div class="cname"><span class="cicon">${th.icon}</span>${th.name}</div><div class="cdesc">${haz}</div>`;
+    c.innerHTML=`<div class="cname"><span class="cicon">${th.icon}</span>${th.name}</div>`+
+      `<div class="cdesc">Can include: ${feats}</div>`+
+      `<div class="cdesc" style="margin-top:5px">✅ <b style="color:#7CFFA0">Good for:</b> ${th.good}<br>⛔ <b style="color:#ff8a8a">Weak for:</b> ${th.weak}</div>`;
     c.onclick=()=>{ initAudio(); resumeAudio(); SFX.select(); escModPick=key; markSel(mc,c); checkEscReady(); };
     mc.appendChild(c);
   });
@@ -1347,7 +1449,7 @@ function showEscalation(){
   for(let i=1;i<4;i++){
     const slot=rand(SLOT_ORDER);
     players[i].build[slot]=rand(deal(POOLS[slot],3));
-    sections[Math.floor(Math.random()*NUM_SECTIONS)].theme = rand(THEME_ORDER);
+    setTheme(Math.floor(Math.random()*NUM_SECTIONS), rand(THEME_ORDER));
   }
 }
 function markSel(container,card){ [...container.querySelectorAll('.card')].forEach(x=>x.classList.toggle('sel',x===card)); }
@@ -1355,7 +1457,7 @@ function checkEscReady(){ $('escNext').disabled = !(escAttrPick&&escModPick); }
 $('escNext').onclick=()=>{
   SFX.scramble();
   players[0].build[escSlot]=escAttrPick;
-  sections[escSection].theme = escModPick;
+  setTheme(escSection, escModPick);
   raceNum++;
   startRace();
 };
