@@ -8,9 +8,6 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script>
-/* â¼â¼â¼â¼â¼  PASTE YOUR FIREBASE CONFIG OBJECT HERE  â¼â¼â¼â¼â¼
-   Firebase console â Project settings â â Your apps â Web app â firebaseConfig.
-   Safe to paste here â Firebase web configs are public by design (security is the DB rules). */
 const firebaseConfig = {
   apiKey:            "AIzaSyDODK7d-etxMQbE5-GzQ_VDzOwAl_7Btos",
   authDomain:        "scramble-racers.firebaseapp.com",
@@ -21,7 +18,8 @@ const firebaseConfig = {
   appId:             "1:801929446001:web:f837a92dac2f99028611d0",
   measurementId:     "G-NEHWE1HJGT"
 };
-/* â²â²â²â²â²  PASTE YOUR FIREBASE CONFIG OBJECT HERE  â²â²â²â²â² */
+firebase.initializeApp(firebaseConfig);
+   const db = firebase.database();
 </script>
 <style>
   * { box-sizing: border-box; }
