@@ -3,24 +3,25 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Scramble Racers — Online Multiplayer</title>
-<!-- Firebase (Realtime Database) — powers the live lobby + player sync -->
+<title>Scramble Racers â Online Multiplayer</title>
+<!-- Firebase (Realtime Database) â powers the live lobby + player sync -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script>
-/* ▼▼▼▼▼  PASTE YOUR FIREBASE CONFIG OBJECT HERE  ▼▼▼▼▼
-   Firebase console → Project settings ⚙ → Your apps → Web app → firebaseConfig.
-   Safe to paste here — Firebase web configs are public by design (security is the DB rules). */
+/* â¼â¼â¼â¼â¼  PASTE YOUR FIREBASE CONFIG OBJECT HERE  â¼â¼â¼â¼â¼
+   Firebase console â Project settings â â Your apps â Web app â firebaseConfig.
+   Safe to paste here â Firebase web configs are public by design (security is the DB rules). */
 const firebaseConfig = {
-  apiKey:        "PASTE_ME",
-  authDomain:    "PASTE_ME",
-  databaseURL:   "PASTE_ME",          /* MUST be the Realtime Database URL (…firebaseio.com or …firebasedatabase.app) */
-  projectId:     "PASTE_ME",
-  storageBucket: "PASTE_ME",
-  messagingSenderId: "PASTE_ME",
-  appId:         "PASTE_ME"
+  apiKey:            "AIzaSyDODK7d-etxMQbE5-GzQ_VDzOwAl_7Btos",
+  authDomain:        "scramble-racers.firebaseapp.com",
+  databaseURL:       "https://scramble-racers-default-rtdb.firebaseio.com",
+  projectId:         "scramble-racers",
+  storageBucket:     "scramble-racers.firebasestorage.app",
+  messagingSenderId: "801929446001",
+  appId:             "1:801929446001:web:f837a92dac2f99028611d0",
+  measurementId:     "G-NEHWE1HJGT"
 };
-/* ▲▲▲▲▲  PASTE YOUR FIREBASE CONFIG OBJECT HERE  ▲▲▲▲▲ */
+/* â²â²â²â²â²  PASTE YOUR FIREBASE CONFIG OBJECT HERE  â²â²â²â²â² */
 </script>
 <style>
   * { box-sizing: border-box; }
@@ -95,13 +96,13 @@ const firebaseConfig = {
 </head>
 <body>
 <div id="wrap">
-  <h1>🏁 SCRAMBLE RACERS <span style="font-size:13px;color:#8595b0;">— online multiplayer</span></h1>
+  <h1>ð SCRAMBLE RACERS <span style="font-size:13px;color:#8595b0;">â online multiplayer</span></h1>
   <canvas id="game" width="960" height="540"></canvas>
 
   <!-- LOBBY -->
   <div id="lobbyPanel" class="panel">
-    <h2>🏁 Race your friends online</h2>
-    <p class="sub" id="lobbyStatus">Connecting to server…</p>
+    <h2>ð Race your friends online</h2>
+    <p class="sub" id="lobbyStatus">Connecting to serverâ¦</p>
 
     <div id="lobbyEntry">
       <div style="margin:10px 0">
@@ -111,7 +112,7 @@ const firebaseConfig = {
       </div>
       <div style="margin-top:16px;display:flex;gap:18px;align-items:center;flex-wrap:wrap">
         <button class="btn" id="createBtn">CREATE ROOM</button>
-        <span style="color:#8595b0">— or join one —</span>
+        <span style="color:#8595b0">â or join one â</span>
         <input id="codeInput" maxlength="4" placeholder="CODE"
           style="text-transform:uppercase;padding:10px;border-radius:6px;border:1px solid #2c3a63;background:#141c33;color:#fff;width:96px;font-size:18px;letter-spacing:4px;text-align:center">
         <button class="btn alt" id="joinBtn">JOIN</button>
@@ -121,12 +122,12 @@ const firebaseConfig = {
     <div id="lobbyRoom" style="display:none">
       <div style="font-size:15px;margin:6px 0">Room code:
         <b id="roomCode" style="font-size:30px;letter-spacing:7px;color:#ffd24d"></b>
-        <span style="font-size:12px;color:#8595b0">— share it with friends to join</span>
+        <span style="font-size:12px;color:#8595b0">â share it with friends to join</span>
       </div>
       <div id="playerList" style="margin:16px 0"></div>
       <div class="center">
-        <button class="btn alt" id="readyBtn">✓ READY</button>
-        <button class="btn" id="startBtn" style="display:none">START RACE →</button>
+        <button class="btn alt" id="readyBtn">â READY</button>
+        <button class="btn" id="startBtn" style="display:none">START RACE â</button>
         <button class="btn alt" id="leaveBtn" style="background:#5a3a3a;color:#fff">LEAVE</button>
       </div>
       <p class="hint" id="roomHint"></p>
@@ -148,19 +149,19 @@ const firebaseConfig = {
 
   <!-- SHOP -->
   <div id="shopPanel" class="panel">
-    <h2>🛒 Shop <span id="shopCoins" style="font-size:18px;color:#ffd24d;margin-left:10px;"></span></h2>
-    <p class="sub" id="shopSub">Spend your coins on upgrades. Stat boosts stack — buy as many as you can afford. Click DONE when you're ready to race.</p>
+    <h2>ð Shop <span id="shopCoins" style="font-size:18px;color:#ffd24d;margin-left:10px;"></span></h2>
+    <p class="sub" id="shopSub">Spend your coins on upgrades. Stat boosts stack â buy as many as you can afford. Click DONE when you're ready to race.</p>
     <div id="shopItems"></div>
     <div id="shopBuild" style="font-size:12px;color:#9fb0c8;margin-top:6px"></div>
     <div class="center">
-      <button class="btn alt" id="shopRefresh">🔄 REFRESH (💰<span id="shopRefreshCost">5</span>)</button>
-      <button class="btn" id="shopDone">DONE — RACE! →</button>
+      <button class="btn alt" id="shopRefresh">ð REFRESH (ð°<span id="shopRefreshCost">5</span>)</button>
+      <button class="btn" id="shopDone">DONE â RACE! â</button>
     </div>
   </div>
 
   <!-- FINAL -->
   <div id="finalPanel" class="panel">
-    <h2 id="finalTitle">🏆 Final standings</h2>
+    <h2 id="finalTitle">ð Final standings</h2>
     <div class="row">
       <div class="scorebox"><table id="finalTable"></table></div>
       <div style="flex:1" id="finalFlavor"></div>
@@ -180,7 +181,7 @@ const FINISH_X = TRACK_LEN - 220;
 const RACES = 4;               // last one is double points
 const PLAYER_W = 26, PLAYER_H = 34;
 
-// base physics — a touch slower & floatier so positioning/timing matters more than holding →
+// base physics â a touch slower & floatier so positioning/timing matters more than holding â
 const BASE_SPEED = 3.25;
 const ACCEL_G = 0.55, ACCEL_A = 0.3;
 const JUMP_V = 13.8;           // higher base jump so even a fresh racer can reach the platform tiers
@@ -191,7 +192,7 @@ const COLORS = ['#e74c3c','#3aa6ff','#2ecc71','#f5c542'];
 const NAMES  = ['You','CPU Rex','CPU Mim','CPU Zoo'];
 
 //////////////////// SOUND ////////////////////
-// Tiny self-contained Web Audio synth — no files, no deps. Browsers block audio
+// Tiny self-contained Web Audio synth â no files, no deps. Browsers block audio
 // until a user gesture, so we lazily create the context on first key/click.
 let actx=null, masterGain=null, soundOn=true;
 function initAudio(){
@@ -203,7 +204,7 @@ function initAudio(){
   }catch(e){ actx=null; }
 }
 function resumeAudio(){ if(actx && actx.state==='suspended') actx.resume(); }
-// a single pitched blip, optionally sweeping freq→slideTo
+// a single pitched blip, optionally sweeping freqâslideTo
 function tone(freq, dur, type='square', vol=0.5, slideTo=null, delay=0){
   if(!actx||!soundOn) return;
   const t0 = actx.currentTime + delay;
@@ -216,7 +217,7 @@ function tone(freq, dur, type='square', vol=0.5, slideTo=null, delay=0){
   o.connect(g); g.connect(masterGain);
   o.start(t0); o.stop(t0+dur+0.03);
 }
-// a burst of filtered noise — landings, whooshes, impacts
+// a burst of filtered noise â landings, whooshes, impacts
 function noise(dur, vol=0.4, filterFreq=1000, ftype='lowpass'){
   if(!actx||!soundOn) return;
   const t0 = actx.currentTime;
@@ -261,11 +262,11 @@ const SFX = {
   coin(){ tone(1050,0.05,'square',0.22,1500); tone(1500,0.05,'square',0.18,2000,null,0.04); },   // collect ding
   coinbuy(){ tone(660,0.07,'square',0.3,990); tone(990,0.09,'square',0.28,1320,null,0.06); },     // shop ka-ching
 };
-// play a sound only for the human racer (idx 0) — avoids 4x cacophony
+// play a sound only for the human racer (idx 0) â avoids 4x cacophony
 function sfx(p, name){ if(p.idx===0 && SFX[name]) SFX[name](); }
 
 //////////////////// MUSIC ////////////////////
-// A relaxed, upbeat loop over a I–V–vi–IV progression (4 bars × 8 eighth-notes = 32 steps):
+// A relaxed, upbeat loop over a IâVâviâIV progression (4 bars Ã 8 eighth-notes = 32 steps):
 // soft filtered bass, a singable square lead, and light kick/hat percussion for groove.
 let musicTimer=null, musicStep=0;
 const NOTE = {C2:65.41,F2:87.31,G2:98.0,A2:110.0,
@@ -307,7 +308,7 @@ function startMusic(){
     if(inBar===0||inBar===4) musicKick();                                        // downbeat kick
     if(inBar%2===1) noise(0.03,0.04,7000,'highpass');                            // offbeat hat
     musicStep++;
-  }, 214);   // 8th notes ≈ 140 bpm
+  }, 214);   // 8th notes â 140 bpm
 }
 function stopMusic(){ if(musicTimer){ clearInterval(musicTimer); musicTimer=null; } }
 
@@ -315,57 +316,57 @@ function stopMusic(){ if(musicTimer){ clearInterval(musicTimer); musicTimer=null
 // numeric mods (speed/jump/gravity) multiply; others are flags.
 const POOLS = {
   helmet: [
-    {name:'Balloon Helmet', icon:'🎈', desc:'Floaty: gravity ×0.7, run ×0.9', mods:{gravity:0.7, speed:0.9}},
-    {name:'Lead Helmet',    icon:'🪨', desc:'Heavy: run ×1.15, fall fast, jump ×0.8', mods:{gravity:1.35, speed:1.15, jump:0.8}},
-    {name:'Propeller Helmet',icon:'🚁',desc:'Hold JUMP while falling to GLIDE slowly', mods:{glide:true}},
-    {name:'Glider Wings',   icon:'🦅', desc:'Strong glide + air control — king of flying over terrain', mods:{glide:true, aircontrol:true, fallcap:5}},
-    {name:'Spring Helmet',  icon:'🌀', desc:'Auto-hop every time you land', mods:{autohop:true}},
-    {name:'Rocket Helmet',  icon:'🚀', desc:'Automatic upward thrust every ~2s', mods:{rocket:true}},
-    {name:'Feather Crown',  icon:'🪶', desc:'Slow, gentle falls (low terminal speed)', mods:{fallcap:7}},
-    {name:'Magnet Helmet',  icon:'🧲', desc:'Auto-homes toward boosts ahead (pads / rings / cannons)', mods:{magnet:true}},
+    {name:'Balloon Helmet', icon:'ð', desc:'Floaty: gravity Ã0.7, run Ã0.9', mods:{gravity:0.7, speed:0.9}},
+    {name:'Lead Helmet',    icon:'ðª¨', desc:'Heavy: run Ã1.15, fall fast, jump Ã0.8', mods:{gravity:1.35, speed:1.15, jump:0.8}},
+    {name:'Propeller Helmet',icon:'ð',desc:'Hold JUMP while falling to GLIDE slowly', mods:{glide:true}},
+    {name:'Glider Wings',   icon:'ð¦', desc:'Strong glide + air control â king of flying over terrain', mods:{glide:true, aircontrol:true, fallcap:5}},
+    {name:'Spring Helmet',  icon:'ð', desc:'Auto-hop every time you land', mods:{autohop:true}},
+    {name:'Rocket Helmet',  icon:'ð', desc:'Automatic upward thrust every ~2s', mods:{rocket:true}},
+    {name:'Feather Crown',  icon:'ðª¶', desc:'Slow, gentle falls (low terminal speed)', mods:{fallcap:7}},
+    {name:'Magnet Helmet',  icon:'ð§²', desc:'Auto-homes toward boosts ahead (pads / rings / cannons)', mods:{magnet:true}},
   ],
   gravity: [
-    {name:'Moon Gravity',   icon:'🌙', desc:'Very low gravity — huge floaty jumps', mods:{gravity:0.6}},
-    {name:'Earth Gravity',  icon:'🌍', desc:'Normal & dependable', mods:{}},
-    {name:'Jupiter Gravity',icon:'🪐', desc:'Heavy — fast falls, snappy but low jumps', mods:{gravity:1.5, jump:0.92}},
-    {name:'Yo-Yo Gravity',  icon:'🪀', desc:'Bounce upward every time you land', mods:{bounce:true}},
-    {name:'Drift Gravity',  icon:'💨', desc:'gravity ×0.8, extra air control', mods:{gravity:0.8, aircontrol:true}},
+    {name:'Moon Gravity',   icon:'ð', desc:'Very low gravity â huge floaty jumps', mods:{gravity:0.6}},
+    {name:'Earth Gravity',  icon:'ð', desc:'Normal & dependable', mods:{}},
+    {name:'Jupiter Gravity',icon:'ðª', desc:'Heavy â fast falls, snappy but low jumps', mods:{gravity:1.5, jump:0.92}},
+    {name:'Yo-Yo Gravity',  icon:'ðª', desc:'Bounce upward every time you land', mods:{bounce:true}},
+    {name:'Drift Gravity',  icon:'ð¨', desc:'gravity Ã0.8, extra air control', mods:{gravity:0.8, aircontrol:true}},
   ],
   shoes: [
-    {name:'Sprint Spikes',  icon:'👟', desc:'Run speed ×1.25', mods:{speed:1.25}},
-    {name:'Spring Boots',   icon:'🥾', desc:'Jump ×1.35', mods:{jump:1.35}},
-    {name:'Grip Treads',    icon:'🧦', desc:'Immune to ice & slippery surfaces', mods:{grip:true}},
-    {name:'Roller Skates',  icon:'🛼', desc:'Run ×1.4 but always slippery', mods:{speed:1.4, slippery:true}},
-    {name:'Moon Boots',     icon:'👢', desc:'Jump ×1.2, gravity ×0.85', mods:{jump:1.2, gravity:0.85}},
-    {name:'Rocket Skates',  icon:'🛼', desc:'Run ×1.15 + constant forward thrust — fast but hard to brake!', mods:{speed:1.15, thrust:true}},
-    {name:'Fish Flops',     icon:'🐟', desc:'Floppy flippers: auto-hop every step + a big jump, but oh-so slippery', mods:{autohop:true, jump:1.2, slippery:true}},
-    {name:'Pogo Stilts',    icon:'🦗', desc:'BOING! Bounce sky-high off every landing', mods:{bounce:true, jump:1.15}},
-    {name:'Gecko Grips',    icon:'🦎', desc:'Total grip: stop on a dime & shrug off knockbacks (great for timing hazards)', mods:{grip:true, sticky:true}},
-    {name:'Cheetah Paws',   icon:'🐆', desc:'Run ×1.55 — blazing fast — but a weak jump (×0.7)', mods:{speed:1.55, jump:0.7}},
-    {name:'Clown Shoes',    icon:'🤡', desc:'Huge floppy honkers: jump ×1.45 but run ×0.8 (and a honk)', mods:{jump:1.45, speed:0.8}},
+    {name:'Sprint Spikes',  icon:'ð', desc:'Run speed Ã1.25', mods:{speed:1.25}},
+    {name:'Spring Boots',   icon:'ð¥¾', desc:'Jump Ã1.35', mods:{jump:1.35}},
+    {name:'Grip Treads',    icon:'ð§¦', desc:'Immune to ice & slippery surfaces', mods:{grip:true}},
+    {name:'Roller Skates',  icon:'ð¼', desc:'Run Ã1.4 but always slippery', mods:{speed:1.4, slippery:true}},
+    {name:'Moon Boots',     icon:'ð¢', desc:'Jump Ã1.2, gravity Ã0.85', mods:{jump:1.2, gravity:0.85}},
+    {name:'Rocket Skates',  icon:'ð¼', desc:'Run Ã1.15 + constant forward thrust â fast but hard to brake!', mods:{speed:1.15, thrust:true}},
+    {name:'Fish Flops',     icon:'ð', desc:'Floppy flippers: auto-hop every step + a big jump, but oh-so slippery', mods:{autohop:true, jump:1.2, slippery:true}},
+    {name:'Pogo Stilts',    icon:'ð¦', desc:'BOING! Bounce sky-high off every landing', mods:{bounce:true, jump:1.15}},
+    {name:'Gecko Grips',    icon:'ð¦', desc:'Total grip: stop on a dime & shrug off knockbacks (great for timing hazards)', mods:{grip:true, sticky:true}},
+    {name:'Cheetah Paws',   icon:'ð', desc:'Run Ã1.55 â blazing fast â but a weak jump (Ã0.7)', mods:{speed:1.55, jump:0.7}},
+    {name:'Clown Shoes',    icon:'ð¤¡', desc:'Huge floppy honkers: jump Ã1.45 but run Ã0.8 (and a honk)', mods:{jump:1.45, speed:0.8}},
   ],
   ability: [
-    {name:'Dash',        icon:'💨', desc:'SPACE: burst forward', mods:{ability:'dash'}},
-    {name:'Jetpack',     icon:'🛸', desc:'SPACE: thrust up — hold to FLY over hazards', mods:{ability:'flap'}},
-    {name:'Double Jump', icon:'⏫', desc:'Press JUMP (↑/W) again in mid-air', mods:{ability:'djump'}},
-    {name:'Ground Pound',icon:'💥', desc:'SPACE in air: slam straight down', mods:{ability:'pound'}},
-    {name:'Blink',       icon:'✨', desc:'SPACE: teleport a short hop forward', mods:{ability:'blink'}},
-    {name:'Super Jump',  icon:'🦘', desc:'SPACE on ground: launch sky-high', mods:{ability:'superjump'}},
-    {name:'Afterburner', icon:'🔥', desc:'SPACE: MONSTER forward rocket — but you can\'t steer or brake. Pure risk.', mods:{ability:'burner'}},
-    {name:'Drill',       icon:'⛏️', desc:'SPACE: dive UNDERGROUND & tunnel forward beneath walls and hazards!', mods:{ability:'drill'}},
-    {name:'Grapple Hook',icon:'🪝', desc:'SPACE: fire a hook & zip forward across gaps in a long swing', mods:{ability:'grapple'}},
-    {name:'Banana Drop', icon:'🍌', desc:'SPACE: drop a banana behind you — racers who hit it SPIN OUT', mods:{ability:'banana'}},
-    {name:'Teleport Swap',icon:'🔀', desc:'SPACE: instantly SWAP places with the racer ahead of you', mods:{ability:'swap'}},
-    // —— PREMIUM, game-breaking abilities (pricey) ——
-    {name:'Time Warp',  icon:'⏳', desc:'SPACE: slow EVERY other racer to a crawl for ~4s while you blaze past', mods:{ability:'timewarp'}, cost:46},
-    {name:'Blast Off',  icon:'🚀', desc:'SPACE: a COLOSSAL rocket launch — sky-high and far forward', mods:{ability:'blastoff'}, cost:30},
-    {name:'Phase Dash', icon:'👻', desc:'SPACE: go intangible and rocket through EVERYTHING for a moment — unstoppable', mods:{ability:'phase'}, cost:38},
+    {name:'Dash',        icon:'ð¨', desc:'SPACE: burst forward', mods:{ability:'dash'}},
+    {name:'Jetpack',     icon:'ð¸', desc:'SPACE: thrust up â hold to FLY over hazards', mods:{ability:'flap'}},
+    {name:'Double Jump', icon:'â«', desc:'Press JUMP (â/W) again in mid-air', mods:{ability:'djump'}},
+    {name:'Ground Pound',icon:'ð¥', desc:'SPACE in air: slam straight down', mods:{ability:'pound'}},
+    {name:'Blink',       icon:'â¨', desc:'SPACE: teleport a short hop forward', mods:{ability:'blink'}},
+    {name:'Super Jump',  icon:'ð¦', desc:'SPACE on ground: launch sky-high', mods:{ability:'superjump'}},
+    {name:'Afterburner', icon:'ð¥', desc:'SPACE: MONSTER forward rocket â but you can\'t steer or brake. Pure risk.', mods:{ability:'burner'}},
+    {name:'Drill',       icon:'âï¸', desc:'SPACE: dive UNDERGROUND & tunnel forward beneath walls and hazards!', mods:{ability:'drill'}},
+    {name:'Grapple Hook',icon:'ðª', desc:'SPACE: fire a hook & zip forward across gaps in a long swing', mods:{ability:'grapple'}},
+    {name:'Banana Drop', icon:'ð', desc:'SPACE: drop a banana behind you â racers who hit it SPIN OUT', mods:{ability:'banana'}},
+    {name:'Teleport Swap',icon:'ð', desc:'SPACE: instantly SWAP places with the racer ahead of you', mods:{ability:'swap'}},
+    // ââ PREMIUM, game-breaking abilities (pricey) ââ
+    {name:'Time Warp',  icon:'â³', desc:'SPACE: slow EVERY other racer to a crawl for ~4s while you blaze past', mods:{ability:'timewarp'}, cost:46},
+    {name:'Blast Off',  icon:'ð', desc:'SPACE: a COLOSSAL rocket launch â sky-high and far forward', mods:{ability:'blastoff'}, cost:30},
+    {name:'Phase Dash', icon:'ð»', desc:'SPACE: go intangible and rocket through EVERYTHING for a moment â unstoppable', mods:{ability:'phase'}, cost:38},
   ],
 };
 const SLOT_ORDER = ['helmet','gravity','shoes','ability','weapon'];
 const SLOT_LABEL = {helmet:'Helmet', gravity:'Gravity', shoes:'Shoes', ability:'Ability', weapon:'Weapon'};
 // emoji shown above a character's head for each helmet
-const HELMET_ICON = {'Balloon Helmet':'🎈','Lead Helmet':'🪨','Propeller Helmet':'🚁','Glider Wings':'🦅','Spring Helmet':'🌀','Rocket Helmet':'🚀','Feather Crown':'👑','Magnet Helmet':'🧲'};
+const HELMET_ICON = {'Balloon Helmet':'ð','Lead Helmet':'ðª¨','Propeller Helmet':'ð','Glider Wings':'ð¦','Spring Helmet':'ð','Rocket Helmet':'ð','Feather Crown':'ð','Magnet Helmet':'ð§²'};
 
 //////////////////// COIN-RUSH: ECONOMY ////////////////////
 // You start with NOTHING. Coins come from placement + collecting on risky routes, and
@@ -373,42 +374,42 @@ const HELMET_ICON = {'Balloon Helmet':'🎈','Lead Helmet':'🪨','Propeller Hel
 const COIN_PAYOUT = [16, 11, 7, 4];   // coins for 1st / 2nd / 3rd / 4th place
 const BASE_BUILD = {
   helmet:  {name:'Bare Head',    icon:'',   desc:'', mods:{}},
-  gravity: {name:'Earth Gravity',icon:'🌍', desc:'', mods:{}},
-  shoes:   {name:'Bare Feet',    icon:'👣', desc:'', mods:{}},
+  gravity: {name:'Earth Gravity',icon:'ð', desc:'', mods:{}},
+  shoes:   {name:'Bare Feet',    icon:'ð£', desc:'', mods:{}},
   ability: {name:'No Ability',   icon:'',   desc:'', mods:{ability:null}},
   weapon:  {name:'Unarmed',      icon:'',   desc:'', mods:{weapon:null}},
 };
 function freshBuild(){ return {helmet:BASE_BUILD.helmet, gravity:BASE_BUILD.gravity, shoes:BASE_BUILD.shoes, ability:BASE_BUILD.ability, weapon:BASE_BUILD.weapon}; }
 
-// WEAPONS — a separate slot, fired with F (ability stays on SPACE). Hurt the other racers.
+// WEAPONS â a separate slot, fired with F (ability stays on SPACE). Hurt the other racers.
 const WEAPONS = [
-  {name:'Sword',       icon:'🗡️', cost:16, desc:'F: hard slash — knocks the racer in front BACKWARD and stuns them ~1s', mods:{weapon:'sword'}},
-  {name:'Slingshot',   icon:'🏹', cost:16, desc:'F: fire a pebble down the track — bonks whoever it hits backward into a long spin-out', mods:{weapon:'sling'}},
-  {name:'Boxing Glove',icon:'🥊', cost:20, desc:'F: HUGE knockback punch — sends a racer ahead flying back', mods:{weapon:'punch'}},
-  {name:'Bomb Toss',   icon:'💣', cost:22, desc:'F: lob a bomb — big blast knocks back & stuns everyone nearby (you too!)', mods:{weapon:'bomb'}},
-  {name:'Freeze Ray',  icon:'❄️', cost:38, desc:'F: fire a frost beam that FREEZES the racer it hits solid for ~4 seconds', mods:{weapon:'freeze'}},
-  {name:'Lightning Strike', icon:'⚡', cost:50, desc:'F: a STORM strikes EVERY other racer down for ~3 seconds! Game-ending — buy it to break a race wide open. Huge cooldown.', mods:{weapon:'lightning'}},
+  {name:'Sword',       icon:'ð¡ï¸', cost:16, desc:'F: hard slash â knocks the racer in front BACKWARD and stuns them ~1s', mods:{weapon:'sword'}},
+  {name:'Slingshot',   icon:'ð¹', cost:16, desc:'F: fire a pebble down the track â bonks whoever it hits backward into a long spin-out', mods:{weapon:'sling'}},
+  {name:'Boxing Glove',icon:'ð¥', cost:20, desc:'F: HUGE knockback punch â sends a racer ahead flying back', mods:{weapon:'punch'}},
+  {name:'Bomb Toss',   icon:'ð£', cost:22, desc:'F: lob a bomb â big blast knocks back & stuns everyone nearby (you too!)', mods:{weapon:'bomb'}},
+  {name:'Freeze Ray',  icon:'âï¸', cost:38, desc:'F: fire a frost beam that FREEZES the racer it hits solid for ~4 seconds', mods:{weapon:'freeze'}},
+  {name:'Lightning Strike', icon:'â¡', cost:50, desc:'F: a STORM strikes EVERY other racer down for ~3 seconds! Game-ending â buy it to break a race wide open. Huge cooldown.', mods:{weapon:'lightning'}},
 ];
-// SYNERGY gear — pricey, build-defining items that combo hard
+// SYNERGY gear â pricey, build-defining items that combo hard
 const SHOP_SYNERGY = [
-  ['helmet',{name:'Cheetah Cap',icon:'🐆',desc:'Run ×2.0 — pure speed demon (but jump ×0.7)', mods:{speed:2.0, jump:0.7}},28],
-  ['helmet',{name:'Pogo Crown', icon:'👑',desc:'Jump ×1.8 + auto-bounce on every landing', mods:{jump:1.8, bounce:true}},26],
-  ['shoes', {name:'Hover Boots',icon:'🛼',desc:'gravity ×0.6 + air control — glide the high route', mods:{gravity:0.6, aircontrol:true}},24],
-  ['helmet',{name:'Jet Helm',   icon:'🛸',desc:'Constant lift — combos with Jetpack for nonstop flight', mods:{rocket:true, gravity:0.85}},26],
-  ['shoes', {name:'Sprint Coils',icon:'🌀',desc:'Run ×1.4 AND jump ×1.3 — bouncy & fast', mods:{speed:1.4, jump:1.3}},24],
-  // —— PREMIUM, insane gear (pricey) ——
-  ['helmet',{name:'Force Field', icon:'🛡️',desc:'INVINCIBLE — shrug off every weapon, thorn & hazard all race (Lightning still gets you)', mods:{forcefield:true}},44],
-  ['helmet',{name:'Golden Touch',icon:'🤑',desc:'Every coin you grab is worth DOUBLE', mods:{coinx2:true}},34],
-  ['gravity',{name:'Anti-Grav Belt',icon:'🌌',desc:'gravity ×0.35 + air control — basically fly the high routes', mods:{gravity:0.35, aircontrol:true}},30],
-  ['shoes', {name:'Berserker Boots',icon:'😈',desc:'Run ×1.6 AND jump ×1.5 — completely unhinged', mods:{speed:1.6, jump:1.5}},42],
+  ['helmet',{name:'Cheetah Cap',icon:'ð',desc:'Run Ã2.0 â pure speed demon (but jump Ã0.7)', mods:{speed:2.0, jump:0.7}},28],
+  ['helmet',{name:'Pogo Crown', icon:'ð',desc:'Jump Ã1.8 + auto-bounce on every landing', mods:{jump:1.8, bounce:true}},26],
+  ['shoes', {name:'Hover Boots',icon:'ð¼',desc:'gravity Ã0.6 + air control â glide the high route', mods:{gravity:0.6, aircontrol:true}},24],
+  ['helmet',{name:'Jet Helm',   icon:'ð¸',desc:'Constant lift â combos with Jetpack for nonstop flight', mods:{rocket:true, gravity:0.85}},26],
+  ['shoes', {name:'Sprint Coils',icon:'ð',desc:'Run Ã1.4 AND jump Ã1.3 â bouncy & fast', mods:{speed:1.4, jump:1.3}},24],
+  // ââ PREMIUM, insane gear (pricey) ââ
+  ['helmet',{name:'Force Field', icon:'ð¡ï¸',desc:'INVINCIBLE â shrug off every weapon, thorn & hazard all race (Lightning still gets you)', mods:{forcefield:true}},44],
+  ['helmet',{name:'Golden Touch',icon:'ð¤',desc:'Every coin you grab is worth DOUBLE', mods:{coinx2:true}},34],
+  ['gravity',{name:'Anti-Grav Belt',icon:'ð',desc:'gravity Ã0.35 + air control â basically fly the high routes', mods:{gravity:0.35, aircontrol:true}},30],
+  ['shoes', {name:'Berserker Boots',icon:'ð',desc:'Run Ã1.6 AND jump Ã1.5 â completely unhinged', mods:{speed:1.6, jump:1.5}},42],
 ];
 
-// stackable stat boosts — buy as many as you can afford; price climbs a little each time
+// stackable stat boosts â buy as many as you can afford; price climbs a little each time
 const SHOP_STATS = [
-  {key:'run',  name:'Speed Boost',  icon:'👟', desc:'+12% run speed (stacks)',      cost:6, step:3, apply:p=>p.bonus.speed*=1.12},
-  {key:'jump', name:'Jump Boost',   icon:'🦘', desc:'+12% jump height (stacks)',    cost:6, step:3, apply:p=>p.bonus.jump*=1.12},
-  {key:'grav', name:'Featherweight',icon:'🪶', desc:'−8% gravity, floatier (stacks)',cost:7, step:3, apply:p=>p.bonus.gravity*=0.92},
-  {key:'magnet',name:'Coin Magnet', icon:'🧲', desc:'Pulls in nearby coins (stacks range)', cost:8, step:4, apply:p=>p.coinMag=(p.coinMag||0)+34},
+  {key:'run',  name:'Speed Boost',  icon:'ð', desc:'+12% run speed (stacks)',      cost:6, step:3, apply:p=>p.bonus.speed*=1.12},
+  {key:'jump', name:'Jump Boost',   icon:'ð¦', desc:'+12% jump height (stacks)',    cost:6, step:3, apply:p=>p.bonus.jump*=1.12},
+  {key:'grav', name:'Featherweight',icon:'ðª¶', desc:'â8% gravity, floatier (stacks)',cost:7, step:3, apply:p=>p.bonus.gravity*=0.92},
+  {key:'magnet',name:'Coin Magnet', icon:'ð§²', desc:'Pulls in nearby coins (stacks range)', cost:8, step:4, apply:p=>p.coinMag=(p.coinMag||0)+34},
 ];
 // one-off gear/ability items: buying EQUIPS them into that build slot
 function gearItem(slot, opt, cost){ return {key:slot+':'+opt.name, slot, opt, name:opt.name, icon:opt.icon, desc:opt.desc, cost}; }
@@ -436,41 +437,41 @@ function flatOffer(o){ return [...o.boosts, ...o.abilities, ...o.weapons, ...o.g
 function statCost(p, it){ return it.cost + (p.bought[it.key]||0)*it.step; }
 
 // map modifiers.  surfaceGrounded types (ice/sand/mud/boost) ONLY apply while you're
-// standing on them — flying/gliding over them is a legit way around.  wind hits you in the air too.
+// standing on them â flying/gliding over them is a legit way around.  wind hits you in the air too.
 const MAP_MODS = [
-  {type:'ice',    name:'Ice',          icon:'❄️', desc:'Slippery — but only while grounded. Fly over to skip it!', color:'#bfe9ff'},
-  {type:'sand',   name:'Sand',         icon:'🏜️', desc:'Slows you on the ground only — airborne dodges it', color:'#e8d39a'},
-  {type:'mud',    name:'Sticky Mud',   icon:'🟫', desc:'Big ground slowdown — glide/fly over to skip it', color:'#7a5a3a'},
-  {type:'boost',  name:'Boost Strip',  icon:'⏩', desc:'Ground speed strip → (only while running on it)', color:'#ff8a3d'},
-  {type:'wind',   name:'Headwind',     icon:'🌬️', desc:'Pushes you back ← — hits you even in the air, no escape', color:'#9fb6c9'},
-  {type:'bounce', name:'Bounce Pads',  icon:'🟣', desc:'Pads fling you upward on contact', color:'#ff5fb0'},
-  {type:'spring', name:'Springboard',  icon:'⤴️', desc:'A big launch ramp — up & forward', color:'#c98bff'},
-  {type:'spikes', name:'Spike Trap',   icon:'🔺', desc:'Hit it and lose your momentum (jump or fly over!)', color:'#ff4d4d'},
-  // "go-for-it" boosts — aim to hit these; great equalizer vs. fast builds
-  {type:'boostpad',name:'Boost Pad',   icon:'⚡', desc:'Slam it for a big forward speed burst →', color:'#ffd23d'},
-  {type:'slide',   name:'Slide',       icon:'🛝', desc:'Ride it to launch up & forward in an arc', color:'#5fd0ff'},
-  {type:'cannon',  name:'Launch Cannon',icon:'💣', desc:'Blasts you in a huge arc down the track', color:'#ff7b00'},
-  {type:'zipline', name:'Speed Rings',  icon:'💠', desc:'A row of rings — fly through for repeated boosts', color:'#42f5b0'},
-  {type:'ladder',  name:'Ladder & Perch',icon:'🪜',desc:'Climb (or fly!) to a high perch with a launch reward on top', color:'#b07a3c'},
-  {type:'swing',   name:'Vine Swing',    icon:'🪢', desc:'Jump into it to grab on & get flung forward in a big arc', color:'#9c6b3f'},
-  {type:'conveyor',name:'Conveyor',      icon:'🔀', desc:'A moving walkway that shoves you along the floor', color:'#facc4a'},
-  {type:'portal',  name:'Warp Portals',  icon:'🌀', desc:'Dash into the blue portal → pop out of the purple one ahead', color:'#7be0ff'},
-  {type:'pendulum',name:'Wrecking Ball', icon:'🔨', desc:'A swinging spiked ball — TIME your run through the gap or get bonked back', color:'#9aa0a6'},
-  {type:'highroad',name:'High Road',     icon:'🛤️', desc:'A fast upper route of boost-platforms with gaps — jump up to take the risk', color:'#8fd6ff'},
-  {type:'crusher', name:'Crusher',       icon:'🔃', desc:'A stamping block — dash under it the instant it lifts', color:'#6b7079'},
-  {type:'saw',     name:'Buzzsaw',       icon:'🪚', desc:'A blade sliding back and forth — slip past when it swings away', color:'#c4c9cf'},
-  {type:'geyser',  name:'Geyser',        icon:'⛲', desc:'Erupts on a timer — ride it up to the high stuff, or get launched off-course', color:'#9fd9ff'},
-  // sky stuff — rewards flying builds
-  {type:'skyring', name:'Sky Rings',    icon:'💫', desc:'A trail of boost rings up high — only flyers can cash them in', color:'#7fe7ff'},
-  {type:'updraft', name:'Updraft',      icon:'🌪️', desc:'A column of rising air that lifts you toward the sky route', color:'#cfeaff'},
-  // RISK/REWARD: a real gap. Fall in → respawn at the start of this section. Jump/fly across to skip it.
-  {type:'pit',    name:'Chasm',         icon:'🕳️', desc:'A gap in the floor! Fall in → back to the section start. Jump or fly across', color:'#1a1320'},
-  // DEADLY: touch it → respawn at the start of this section. Jump or fly over.
-  {type:'lava',   name:'Lava',          icon:'🌋', desc:'Touch it → back to the section start! Jump or fly over', color:'#ff5a1f'},
-  // PLAYGROUND verticality — the UP / DOWN choices
-  {type:'tramp',  name:'Trampoline',    icon:'🤸', desc:'Bounce HIGH onto the upper platform route', color:'#ff6fae'},
-  {type:'seesaw', name:'Seesaw',        icon:'🛹', desc:'Stomp the end to fling up & forward', color:'#e8b04a'},
-  {type:'sandbox',name:'Sandbox',       icon:'🏖️', desc:'Soft sand — slower, but full of buried coins to dig up', color:'#e8d39a'},
+  {type:'ice',    name:'Ice',          icon:'âï¸', desc:'Slippery â but only while grounded. Fly over to skip it!', color:'#bfe9ff'},
+  {type:'sand',   name:'Sand',         icon:'ðï¸', desc:'Slows you on the ground only â airborne dodges it', color:'#e8d39a'},
+  {type:'mud',    name:'Sticky Mud',   icon:'ð«', desc:'Big ground slowdown â glide/fly over to skip it', color:'#7a5a3a'},
+  {type:'boost',  name:'Boost Strip',  icon:'â©', desc:'Ground speed strip â (only while running on it)', color:'#ff8a3d'},
+  {type:'wind',   name:'Headwind',     icon:'ð¬ï¸', desc:'Pushes you back â â hits you even in the air, no escape', color:'#9fb6c9'},
+  {type:'bounce', name:'Bounce Pads',  icon:'ð£', desc:'Pads fling you upward on contact', color:'#ff5fb0'},
+  {type:'spring', name:'Springboard',  icon:'â¤´ï¸', desc:'A big launch ramp â up & forward', color:'#c98bff'},
+  {type:'spikes', name:'Spike Trap',   icon:'ðº', desc:'Hit it and lose your momentum (jump or fly over!)', color:'#ff4d4d'},
+  // "go-for-it" boosts â aim to hit these; great equalizer vs. fast builds
+  {type:'boostpad',name:'Boost Pad',   icon:'â¡', desc:'Slam it for a big forward speed burst â', color:'#ffd23d'},
+  {type:'slide',   name:'Slide',       icon:'ð', desc:'Ride it to launch up & forward in an arc', color:'#5fd0ff'},
+  {type:'cannon',  name:'Launch Cannon',icon:'ð£', desc:'Blasts you in a huge arc down the track', color:'#ff7b00'},
+  {type:'zipline', name:'Speed Rings',  icon:'ð ', desc:'A row of rings â fly through for repeated boosts', color:'#42f5b0'},
+  {type:'ladder',  name:'Ladder & Perch',icon:'ðª',desc:'Climb (or fly!) to a high perch with a launch reward on top', color:'#b07a3c'},
+  {type:'swing',   name:'Vine Swing',    icon:'ðª¢', desc:'Jump into it to grab on & get flung forward in a big arc', color:'#9c6b3f'},
+  {type:'conveyor',name:'Conveyor',      icon:'ð', desc:'A moving walkway that shoves you along the floor', color:'#facc4a'},
+  {type:'portal',  name:'Warp Portals',  icon:'ð', desc:'Dash into the blue portal â pop out of the purple one ahead', color:'#7be0ff'},
+  {type:'pendulum',name:'Wrecking Ball', icon:'ð¨', desc:'A swinging spiked ball â TIME your run through the gap or get bonked back', color:'#9aa0a6'},
+  {type:'highroad',name:'High Road',     icon:'ð¤ï¸', desc:'A fast upper route of boost-platforms with gaps â jump up to take the risk', color:'#8fd6ff'},
+  {type:'crusher', name:'Crusher',       icon:'ð', desc:'A stamping block â dash under it the instant it lifts', color:'#6b7079'},
+  {type:'saw',     name:'Buzzsaw',       icon:'ðª', desc:'A blade sliding back and forth â slip past when it swings away', color:'#c4c9cf'},
+  {type:'geyser',  name:'Geyser',        icon:'â²', desc:'Erupts on a timer â ride it up to the high stuff, or get launched off-course', color:'#9fd9ff'},
+  // sky stuff â rewards flying builds
+  {type:'skyring', name:'Sky Rings',    icon:'ð«', desc:'A trail of boost rings up high â only flyers can cash them in', color:'#7fe7ff'},
+  {type:'updraft', name:'Updraft',      icon:'ðªï¸', desc:'A column of rising air that lifts you toward the sky route', color:'#cfeaff'},
+  // RISK/REWARD: a real gap. Fall in â respawn at the start of this section. Jump/fly across to skip it.
+  {type:'pit',    name:'Chasm',         icon:'ð³ï¸', desc:'A gap in the floor! Fall in â back to the section start. Jump or fly across', color:'#1a1320'},
+  // DEADLY: touch it â respawn at the start of this section. Jump or fly over.
+  {type:'lava',   name:'Lava',          icon:'ð', desc:'Touch it â back to the section start! Jump or fly over', color:'#ff5a1f'},
+  // PLAYGROUND verticality â the UP / DOWN choices
+  {type:'tramp',  name:'Trampoline',    icon:'ð¤¸', desc:'Bounce HIGH onto the upper platform route', color:'#ff6fae'},
+  {type:'seesaw', name:'Seesaw',        icon:'ð¹', desc:'Stomp the end to fling up & forward', color:'#e8b04a'},
+  {type:'sandbox',name:'Sandbox',       icon:'ðï¸', desc:'Soft sand â slower, but full of buried coins to dig up', color:'#e8d39a'},
 ];
 const MAP_BY_TYPE = Object.fromEntries(MAP_MODS.map(m=>[m.type,m]));
 
@@ -479,31 +480,31 @@ const MAP_BY_TYPE = Object.fromEntries(MAP_MODS.map(m=>[m.type,m]));
 // ground SURFACE, and places its own HAZARD set. Players re-theme sections in the
 // Scramble phase. `objects` are placed as triggers; `surface` is a grounded zone effect.
 // Each theme has a feature POOL; when a section gets a theme it rolls a RANDOM SUBSET
-// (roll:[min,max]) of that pool — so the same theme varies run to run (slide, or swing,
+// (roll:[min,max]) of that pool â so the same theme varies run to run (slide, or swing,
 // or both...). `good`/`weak` spell out which builds the zone rewards or punishes.
 const SECTION_THEMES = {
-  grassland: { name:'Grassland', icon:'🌳', sky:['#7fb2ee','#a9d4f5','#dff0ff'], ground:'#6ab04c', edge:'rgba(0,0,0,.12)', prop:'hills',  surface:null,
-    objects:['boostpad','spring','swing','conveyor','highroad'], roll:[1,2], good:'Sprinters & dashers', weak:'Nobody really — easy zone' },
-  playground:{ name:'Playground',icon:'🛝', sky:['#8fd6ff','#bfe9ff','#eafaff'], ground:'#7ec85a', edge:'rgba(0,0,0,.12)', prop:'play', surface:null,
+  grassland: { name:'Grassland', icon:'ð³', sky:['#7fb2ee','#a9d4f5','#dff0ff'], ground:'#6ab04c', edge:'rgba(0,0,0,.12)', prop:'hills',  surface:null,
+    objects:['boostpad','spring','swing','conveyor','highroad'], roll:[1,2], good:'Sprinters & dashers', weak:'Nobody really â easy zone' },
+  playground:{ name:'Playground',icon:'ð', sky:['#8fd6ff','#bfe9ff','#eafaff'], ground:'#7ec85a', edge:'rgba(0,0,0,.12)', prop:'play', surface:null,
     objects:['tramp','slide','swing','seesaw','bounce','highroad','sandbox','ladder','tramp','ladder','highroad'], roll:[3,4], good:'Bouncy & jumpy builds', weak:'Heavy, low-jump builds' },
-  dungeon:   { name:'Dungeon',   icon:'🏰', sky:['#15121c','#241c2e','#3a2d44'], ground:'#3a3340', edge:'rgba(255,140,60,.25)', prop:'dungeon', surface:null,
+  dungeon:   { name:'Dungeon',   icon:'ð°', sky:['#15121c','#241c2e','#3a2d44'], ground:'#3a3340', edge:'rgba(255,140,60,.25)', prop:'dungeon', surface:null,
     objects:['lava','spikes','swing','ladder','pendulum','crusher','saw'], roll:[2,3], good:'Flyers & high-jumpers (skip the floor)', weak:'Heavy, low-jump, no-fly' },
-  ice:       { name:'Ice Cave',  icon:'❄️', sky:['#1f3a5c','#3f6e9e','#9fd0ee'], ground:'#bfe9ff', edge:'rgba(255,255,255,.45)', prop:'ice', surface:'ice',
-    objects:['spring','bounce','ladder','geyser','swing','conveyor'], roll:[1,2], good:'Grip Treads (no slip!)', weak:'Slippery/roller shoes — uncontrollable' },
-  sky:       { name:'Sky',       icon:'🌌', sky:['#241a52','#4a3a90','#9a82e0'], ground:'#6a5acd', edge:'rgba(255,255,255,.25)', prop:'stars', surface:null,
+  ice:       { name:'Ice Cave',  icon:'âï¸', sky:['#1f3a5c','#3f6e9e','#9fd0ee'], ground:'#bfe9ff', edge:'rgba(255,255,255,.45)', prop:'ice', surface:'ice',
+    objects:['spring','bounce','ladder','geyser','swing','conveyor'], roll:[1,2], good:'Grip Treads (no slip!)', weak:'Slippery/roller shoes â uncontrollable' },
+  sky:       { name:'Sky',       icon:'ð', sky:['#241a52','#4a3a90','#9a82e0'], ground:'#6a5acd', edge:'rgba(255,255,255,.25)', prop:'stars', surface:null,
     objects:['updraft','skyring','cannon','swing','portal','geyser','highroad'], roll:[2,3], good:'Flyers (Jetpack / Glider / Moon)', weak:'Heavy grounded builds' },
-  lab:       { name:'Factory',   icon:'⚙️', sky:['#2a3340','#3f4d5e','#6b7d90'], ground:'#4a5568', edge:'rgba(120,220,255,.3)', prop:'lab',  surface:'boost',
+  lab:       { name:'Factory',   icon:'âï¸', sky:['#2a3340','#3f4d5e','#6b7d90'], ground:'#4a5568', edge:'rgba(120,220,255,.3)', prop:'lab',  surface:'boost',
     objects:['boostpad','cannon','zipline','conveyor','portal','pendulum','crusher','saw','highroad'], roll:[2,3], good:'Fast ground builds & dashers', weak:'Slow / floaty builds' },
 };
 const THEME_ORDER = ['grassland','playground','dungeon','ice','sky','lab'];
 function secTheme(i){ return SECTION_THEMES[sections[i].theme] || SECTION_THEMES.grassland; }
 function themeAtX(x){ return secTheme(sectionIndexAt(x)); }
 // roll a random subset of a theme's feature pool.
-// HARD RULE: at most ONE respawn-hazard (lava/spikes/pit) per section — stacking two
+// HARD RULE: at most ONE respawn-hazard (lava/spikes/pit) per section â stacking two
 // deadly hazards close together creates respawn loops for disruptive builds.
 const DEADLY_FEATS = ['lava','spikes','pit'];
 const TIMED_FEATS  = ['pendulum','crusher','saw'];
-// at most ONE "major" hazard (deadly OR timed) per section — combining a knockback timed
+// at most ONE "major" hazard (deadly OR timed) per section â combining a knockback timed
 // hazard with a respawn hazard makes loops (e.g. a saw bonking you back into lava).
 const MAJOR_FEATS = new Set([...DEADLY_FEATS, ...TIMED_FEATS]);
 function rollFeats(key){
@@ -607,7 +608,7 @@ const TUN_D = 150, TUN_ENTRY = 92, TUN_EXIT = 150;  // tunnel floor depth / entr
 function buildBaseLayout(){
   // THREE ROUTES: the ground (mid) + two near-continuous platform lanes above it.
   // TIER 1 sits one jump above the ground; TIER 2 sits one jump above tier 1. Their
-  // undersides clear head height, so ground runners pass underneath freely — going up
+  // undersides clear head height, so ground runners pass underneath freely â going up
   // is always a choice (jump in a gap, ride a trampoline/swing/seesaw up).
   baseLayout = [];
   // each platform also gets a FEATURE so they don't all play the same: a hurdle to jump,
@@ -615,11 +616,11 @@ function buildBaseLayout(){
   const T1=['grass','wood','net','candy','wood'], T2=['cloud','net','candy','wood','grass'];
   const F1=[null,'hurdle',null,'bounce','hurdle'], F2=['bounce',null,'spring',null,'hurdle'];
   let i1=0;
-  for(let x=560; x<TRACK_LEN-340; x+=380){          // TIER 1 — reachable from the ground (big gaps to hop up through)
+  for(let x=560; x<TRACK_LEN-340; x+=380){          // TIER 1 â reachable from the ground (big gaps to hop up through)
     baseLayout.push({x, y:GROUND_Y-105, w:210, h:18, kind:'plat', style:T1[i1%T1.length], feat:F1[i1%F1.length]}); i1++;
   }
   let i2=0;
-  for(let x=760; x<TRACK_LEN-340; x+=380){          // TIER 2 — reachable from tier 1 (staggered over tier-1 gaps)
+  for(let x=760; x<TRACK_LEN-340; x+=380){          // TIER 2 â reachable from tier 1 (staggered over tier-1 gaps)
     baseLayout.push({x, y:GROUND_Y-210, w:200, h:18, kind:'plat', style:T2[i2%T2.length], feat:F2[i2%F2.length]}); i2++;
   }
 }
@@ -652,7 +653,7 @@ function rebuildTrackObjects(){
   let gx=0;
   for(const g of gaps){ if(g.x>gx) solids.push({x:gx, y:GROUND_Y, w:g.x-gx, h:CH-GROUND_Y}); gx=g.x+g.w; }
   if(gx<TRACK_LEN) solids.push({x:gx, y:GROUND_Y, w:TRACK_LEN-gx, h:CH-GROUND_Y});
-  // fill each cave with an auto-steppable basin: down 22→44→floor, then up 44→22 (any build can walk it)
+  // fill each cave with an auto-steppable basin: down 22â44âfloor, then up 44â22 (any build can walk it)
   for(const c of caveSpans){
     const fw = c.w - 4*CAVE_STEP;
     const zones = [[c.x,CAVE_STEP,GROUND_Y+22],[c.x+CAVE_STEP,CAVE_STEP,GROUND_Y+44],
@@ -662,7 +663,7 @@ function rebuildTrackObjects(){
   }
   // tunnel structures: solid grass ceiling (committed), flat floor, stepped exit ramp + one-way exit platform
   for(const tn of tunnelSpans){
-    solids.push({x:tn.bx0, y:GROUND_Y, w:tn.bx1-tn.bx0, h:22, kind:'bridge'});   // grass ceiling — TWO-WAY (no climbing up)
+    solids.push({x:tn.bx0, y:GROUND_Y, w:tn.bx1-tn.bx0, h:22, kind:'bridge'});   // grass ceiling â TWO-WAY (no climbing up)
     solids.push({x:tn.x0, y:tn.fy, w:tn.bx1-tn.x0, h:400});                       // flat tunnel floor
     solids.push({x:tn.bx1, y:GROUND_Y, w:tn.x1-tn.bx1, h:18, kind:'plat'});       // one-way exit platform (top runners cross, tunnellers climb up THROUGH)
     const steps=7, sw=TUN_EXIT/steps;
@@ -692,27 +693,27 @@ function rebuildTrackObjects(){
           triggers.push({type:'bounce', x:i*SEC_W + (j+1)*SEC_W/4 - 42, y:GROUND_Y-14, w:84, h:14});
         }
       } else if(t==='tramp'){
-        // TRAMPOLINE — the UP choice: bounce high onto the upper platform route
+        // TRAMPOLINE â the UP choice: bounce high onto the upper platform route
         triggers.push({type:'tramp', x:cx+off-46, y:GROUND_Y-18, w:92, h:18});
       } else if(t==='seesaw'){
-        // SEESAW — a big tilting plank you ride across (no bounce — real teeter-totter)
+        // SEESAW â a big tilting plank you ride across (no bounce â real teeter-totter)
         seesaws.push({x:cx+off-140, w:280, py:GROUND_Y-52, tilt:0});
       } else if(t==='sandbox'){
         // a flat sand patch on the ground: slows you, but holds buried coins (added in buildCoins)
         triggers.push({type:'sandbox', x:cx+off-115, y:GROUND_Y-2, w:230, h:8});
       } else if(t==='swing'){
-        // a swing hanging at mid-height — jump in to ride it across and up to a higher tier
+        // a swing hanging at mid-height â jump in to ride it across and up to a higher tier
         triggers.push({type:'swing', x:cx+off-30, y:GROUND_Y-150, w:60, h:112});
       } else if(t==='conveyor'){
         // a forward-moving walkway on the floor (you can also just jump over it)
         triggers.push({type:'conveyor', x:cx+off-100, y:GROUND_Y-6, w:200, h:10, dir:1});
       } else if(t==='pendulum'){
-        // a swinging spiked ball — h:0 so the generic AABB skips it; handled specially each frame
+        // a swinging spiked ball â h:0 so the generic AABB skips it; handled specially each frame
         triggers.push({type:'pendulum', x:cx+off, y:GROUND_Y-210, w:0, h:0, ax:cx+off, ay:GROUND_Y-210, len:168, amp:1.15, r:28, phase:(i*1.7+k*0.9)});
       } else if(t==='highroad'){
         // BRANCH: a fast high road of boost-platforms (with gaps) above the safe low road.
         // CHOOSE it: jump up onto the first platform (a step helps), chain the boosts &
-        // clear the gaps for a fast lap — miss a gap and you just drop back to the low road.
+        // clear the gaps for a fast lap â miss a gap and you just drop back to the low road.
         const hy=GROUND_Y-112;
         for(const sg of [[cx+off-340,250],[cx+off+0,240],[cx+off+320,210]]){
           solids.push({x:sg[0], y:hy, w:sg[1], h:18, kind:'plat'});
@@ -721,12 +722,12 @@ function rebuildTrackObjects(){
       } else if(t==='crusher'){
         triggers.push({type:'crusher', x:cx+off, y:0, w:70, h:0, ax:cx+off, topY:GROUND_Y-180, botY:GROUND_Y-40, period:128, phase:((i*41+k*27)%128)});
       } else if(t==='saw'){
-        // a small blade sliding over a short span at ground level — JUMP over it (or time the side)
+        // a small blade sliding over a short span at ground level â JUMP over it (or time the side)
         triggers.push({type:'saw', x:cx+off, y:0, w:0, h:0, x0:cx+off-48, x1:cx+off+48, sy:GROUND_Y-18, r:24, phase:(i*1.1+k*0.7)});
       } else if(t==='geyser'){
         triggers.push({type:'geyser', x:cx+off, y:0, w:62, h:0, gx:cx+off, period:120, phase:((i*37+k*23)%120), colH:180});
       } else if(t==='portal'){
-        // entry (blue) → exit (purple) ~360px ahead: a shortcut
+        // entry (blue) â exit (purple) ~360px ahead: a shortcut
         portals.push({ax:cx+off-150, ay:GROUND_Y-46, bx:cx+off+210, by:GROUND_Y-46, cd:0});
       } else if(t==='boostpad'){
         triggers.push({type:'boostpad', x:cx+off-48, y:GROUND_Y-16, w:96, h:16});
@@ -734,7 +735,7 @@ function rebuildTrackObjects(){
         // a rideable ramp: up the front, accelerate down the back, exit fast & low
         slideRamps.push({x:cx+off-100, w:210, h:120});
       } else if(t==='lava'){
-        // one narrow lava pool (jump-clearable by any build) — touch → respawn at section start
+        // one narrow lava pool (jump-clearable by any build) â touch â respawn at section start
         triggers.push({type:'lava', x:cx+off-27, y:GROUND_Y-4, w:54, h:12});
       } else if(t==='cannon'){
         triggers.push({type:'cannon', x:cx+off-32, y:GROUND_Y-56, w:64, h:56});
@@ -743,7 +744,7 @@ function rebuildTrackObjects(){
           triggers.push({type:'zipline', x:i*SEC_W + (j+1)*SEC_W/5 - 26, y:GROUND_Y-96, w:52, h:84});
         }
       } else if(t==='skyring'){
-        // boost rings up HIGH — only flyers reach them
+        // boost rings up HIGH â only flyers reach them
         for(let j=0;j<5;j++){
           triggers.push({type:'skyring', x:i*SEC_W + (j+1)*SEC_W/6 - 26, y:GROUND_Y-290, w:52, h:84});
         }
@@ -751,7 +752,7 @@ function rebuildTrackObjects(){
         triggers.push({type:'updraft', x:cx+off-55, y:GROUND_Y-330, w:110, h:330});
       } else if(t==='ladder'){
         // High route: climb the ladder (or fly!) straight up into a launch cannon that
-        // blasts you forward. Ground below stays fully open, so it's always passable —
+        // blasts you forward. Ground below stays fully open, so it's always passable â
         // the high route is just faster, and flight beats climbing to it. No solid perch
         // (that would wedge climbers underneath); the perch is drawn decoratively only.
         const lx = cx+off-16, perchY = GROUND_Y-230;
@@ -759,7 +760,7 @@ function rebuildTrackObjects(){
       }
     });
   }
-  // a FEW minor respawn hazards (thorn bushes) scattered on the main path — hit one and you're
+  // a FEW minor respawn hazards (thorn bushes) scattered on the main path â hit one and you're
   // sent back to the start of that section. Jump over them.
   for(let n=0;n<3;n++){
     const tx = 700 + Math.floor(RNG()*(TRACK_LEN-1500));
@@ -773,7 +774,7 @@ function rebuildTrackObjects(){
 
 // scatter coins on the RISKY routes: arcs above the aerial platforms / high-road, rows along
 // each underground cave floor, and trails on the sky features. The flat ground path stays
-// mostly coin-free — detour UP or DOWN to cash in. Coins are per-racer (a `got` bitmask).
+// mostly coin-free â detour UP or DOWN to cash in. Coins are per-racer (a `got` bitmask).
 function buildCoins(){
   coins = [];
   const add=(x,y,r=9)=>coins.push({x:Math.round(x), y:Math.round(y), r, got:0});
@@ -784,7 +785,7 @@ function buildCoins(){
     for(const t of triggers)  if((t.type==='lava'||t.type==='spikes') && x>t.x-45 && x<t.x+t.w+45) return false;
     return true;
   };
-  // GROUND HOPS: little arcs at jump height along the path — base runners can grab these by jumping
+  // GROUND HOPS: little arcs at jump height along the path â base runners can grab these by jumping
   for(let x=560; x<TRACK_LEN-400; x+=840){
     if(!clearAt(x)) continue;
     for(const d of [-34,0,34]) add(x+d, GROUND_Y-60-Math.cos(d/34*1.1)*30);
@@ -807,9 +808,9 @@ function buildCoins(){
   }
   // SANDBOX: coins to scoop up while wading through the sand
   for(const t of triggers){ if(t.type==='sandbox'){ const n=Math.floor(t.w/46); for(let k=0;k<n;k++) add(t.x + t.w*(k+0.6)/n, GROUND_Y-9, 9); } }
-  // TRAMPOLINE: a column of coins above each one — bounce up to grab them
+  // TRAMPOLINE: a column of coins above each one â bounce up to grab them
   for(const t of triggers){ if(t.type==='tramp'){ for(let k=0;k<4;k++) add(t.x+t.w/2, t.y-44-k*40, 9); } }
-  // TUNNEL: a long row of coins down the underground floor — the reward for going deep
+  // TUNNEL: a long row of coins down the underground floor â the reward for going deep
   for(const tn of tunnelSpans){ const n=Math.floor((tn.bx1-tn.bx0)/55); for(let k=0;k<n;k++) add(tn.bx0 + (tn.bx1-tn.bx0)*(k+0.5)/n, tn.fy-16, 10); }
 }
 
@@ -822,7 +823,7 @@ function secMods(i){
 function sectionIndexAt(x){ return clamp(Math.floor(x/SEC_W),0,NUM_SECTIONS-1); }
 function sectionHas(x,type){ return secMods(sectionIndexAt(x)).includes(type); }
 // respawn a racer at the very start of their current section (lava/spikes/falling penalty).
-// NO MERCY — hazards are brutal. You keep retrying; only the race clock ever ends it.
+// NO MERCY â hazards are brutal. You keep retrying; only the race clock ever ends it.
 function respawnSection(p){
   const si = sectionIndexAt(p.x + PLAYER_W/2);
   p.x = si*SEC_W + 24; p.y = GROUND_Y - PLAYER_H;
@@ -832,7 +833,7 @@ function respawnSection(p){
   p.fx = 'WIPEOUT!'; p.fxT = 32;
   sfx(p, 'wipeout');
   // The HUMAN gets NO mercy. But a CPU that keeps dying in the same section auto-burrows
-  // through it — so SOMEONE always finishes and the race never hangs. (Invisible to the
+  // through it â so SOMEONE always finishes and the race never hangs. (Invisible to the
   // player's own challenge; just keeps races ending without a 95s stall.)
   if(p.idx>0){
     if(p.lastRespSec===si) p.secRespawns=(p.secRespawns||0)+1; else { p.secRespawns=1; p.lastRespSec=si; }
@@ -854,7 +855,7 @@ function aabb(a,b){ return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.
 
 function aiInput(p){
   // CPUs always push right. They read the track ahead and clear hazards with jumps AND
-  // their ability — so SOMEONE always finishes (which starts the 15s sudden-death clock).
+  // their ability â so SOMEONE always finishes (which starts the 15s sudden-death clock).
   const inp = {dir:1, jump:false, jumpHeld:false, ability:false, abilityHeld:false, fire:false};
   const feet = p.y+PLAYER_H;
   if(p.aiJumpCd>0) p.aiJumpCd--;
@@ -880,7 +881,7 @@ function aiInput(p){
   // double-jump mid-air to stretch a long gap
   if(ab==='djump' && !p.grounded && !p.djumpUsed && p.vy>0 && threat<60) inp.jump=true;
 
-  // crossing abilities — fire them as a deadly hazard comes into range
+  // crossing abilities â fire them as a deadly hazard comes into range
   const CROSSERS=['dash','burner','blink','grapple','drill','superjump','blastoff','phase'];
   if(deadlyNear && p.grounded && p.abilityCd<=0 && CROSSERS.includes(ab)) inp.ability=true;
   // Jetpack: fly over hazards / bad ground
@@ -890,7 +891,7 @@ function aiInput(p){
   } else if(ab && p.grounded && p.abilityCd<=0 && !inp.ability && !deadlyNear && Math.random()<0.01){
     inp.ability=true; // occasional flair on open ground
   }
-  // timed hazards: hang back until the danger clears — but NEVER forever. After ~45 frames
+  // timed hazards: hang back until the danger clears â but NEVER forever. After ~45 frames
   // of waiting, commit and barrel through (they only stun), so a CPU can't stall the race.
   let anyBlock=false;
   for(const t of triggers){
@@ -944,29 +945,29 @@ function humanInput(p){
 }
 
 // returns true if the ability actually fired (so the input buffer can clear).
-// Abilities are intentionally POLARIZING — huge upside, real cost — and shine in
+// Abilities are intentionally POLARIZING â huge upside, real cost â and shine in
 // different biomes (flyers love the sky, dash/burner love flat dunes, etc.).
 function doAbility(p){
   const ab = p.stats.flags.ability;
   const fx=(t,cd,snd)=>{ p.fx=t; p.fxT=28; if(cd){p.abilityCd=cd; p.abilityCdMax=cd;} if(snd) sfx(p,snd); };
   if(ab==='dash'){ if(p.abilityCd<=0){ p.dash=18; p.invuln=Math.max(p.invuln,18); fx('DASH!',55,'dash'); return true; } }       // longer + bursts through spikes
   else if(ab==='blink'){ if(p.abilityCd<=0){ p.x += 210; p.invuln=Math.max(p.invuln,10); fx('BLINK!',70,'blink'); return true; } } // teleport far, phases hazards
-  else if(ab==='pound'){ if(!p.grounded){ p.vy = 28; p.pounding=true; fx('POUND!',0,'pound'); return true; } }                  // slam → forward burst on landing
+  else if(ab==='pound'){ if(!p.grounded){ p.vy = 28; p.pounding=true; fx('POUND!',0,'pound'); return true; } }                  // slam â forward burst on landing
   else if(ab==='superjump'){ if(p.grounded){ p.vy = -JUMP_V*p.stats.jump*2.3; p.grounded=false; fx('LAUNCH!',42,'superjump'); return true; } }
-  else if(ab==='burner'){ if(p.abilityCd<=0){ p.burn=34; p.grounded=false; p.vy=Math.min(p.vy,-2); fx('AFTERBURNER!',95,'burner'); return true; } } // locked rocket — no steering!
+  else if(ab==='burner'){ if(p.abilityCd<=0){ p.burn=34; p.grounded=false; p.vy=Math.min(p.vy,-2); fx('AFTERBURNER!',95,'burner'); return true; } } // locked rocket â no steering!
   else if(ab==='drill'){ if(p.abilityCd<=0){ p.drill=80; p.invuln=Math.max(p.invuln,80); fx('BURROW!',95,'pound'); return true; } }   // dive underground & tunnel forward under everything
   else if(ab==='grapple'){ if(p.abilityCd<=0){ p.grappleT=20; p.grounded=false; p.invuln=Math.max(p.invuln,22); fx('GRAPPLE!',75,'blink'); return true; } } // fire a hook & zip up-and-forward
-  else if(ab==='banana'){ if(p.abilityCd<=0){ dropped.push({x:p.x+PLAYER_W/2-(p.facing||1)*30, y:GROUND_Y-12, owner:p.idx, life:60*16}); fx('🍌!',75,'select'); return true; } } // leave a trap behind
+  else if(ab==='banana'){ if(p.abilityCd<=0){ dropped.push({x:p.x+PLAYER_W/2-(p.facing||1)*30, y:GROUND_Y-12, owner:p.idx, life:60*16}); fx('ð!',75,'select'); return true; } } // leave a trap behind
   else if(ab==='swap'){ if(p.abilityCd<=0){
       let target=null,bd=1e9; for(const o of players){ if(o!==p && !o.finished && o.x>p.x && o.x-p.x<bd){ bd=o.x-p.x; target=o; } }
       if(target){ const tx=target.x,ty=target.y; target.x=p.x; target.y=p.y; p.x=tx; p.y=ty;
         burstP(p.x+PLAYER_W/2,p.y+PLAYER_H/2,16,'#c77bff',4,24,3); burstP(target.x+PLAYER_W/2,target.y+PLAYER_H/2,16,'#c77bff',4,24,3);
         fx('SWAP!',170,'blink'); return true; }
     } }
-  // —— PREMIUM abilities ——
-  else if(ab==='timewarp'){ if(p.abilityCd<=0){ for(const o of players){ if(o!==p && !o.finished) o.slowT=Math.max(o.slowT||0,240); } lightningFlash=6; fx('⏳ TIME WARP!',60*12,'blink'); return true; } }
-  else if(ab==='blastoff'){ if(p.grounded){ p.vy=-JUMP_V*p.stats.jump*3.0; p.vx=(p.facing||1)*BASE_SPEED*p.stats.speed*p.speedJitter*2.4; p.grounded=false; burstP(p.x+PLAYER_W/2,p.y+PLAYER_H,18,'#ff8a3d',5.5,24,3.5); fx('🚀 BLAST OFF!',55,'superjump'); return true; } }
-  else if(ab==='phase'){ if(p.abilityCd<=0){ p.phaseT=72; p.invuln=Math.max(p.invuln,80); fx('👻 PHASE!',80,'dash'); return true; } }
+  // ââ PREMIUM abilities ââ
+  else if(ab==='timewarp'){ if(p.abilityCd<=0){ for(const o of players){ if(o!==p && !o.finished) o.slowT=Math.max(o.slowT||0,240); } lightningFlash=6; fx('â³ TIME WARP!',60*12,'blink'); return true; } }
+  else if(ab==='blastoff'){ if(p.grounded){ p.vy=-JUMP_V*p.stats.jump*3.0; p.vx=(p.facing||1)*BASE_SPEED*p.stats.speed*p.speedJitter*2.4; p.grounded=false; burstP(p.x+PLAYER_W/2,p.y+PLAYER_H,18,'#ff8a3d',5.5,24,3.5); fx('ð BLAST OFF!',55,'superjump'); return true; } }
+  else if(ab==='phase'){ if(p.abilityCd<=0){ p.phaseT=72; p.invuln=Math.max(p.invuln,80); fx('ð» PHASE!',80,'dash'); return true; } }
   // djump is handled in the jump logic (it's bound to the JUMP key, not SHIFT)
   return false;
 }
@@ -981,11 +982,11 @@ function nearestAhead(p, maxDist){
 }
 function hitPlayer(target, fromX, kind){
   if(target.invuln>0 || target.stun>0) return false;
-  if(target.stats && target.stats.flags.forcefield){ burstP(target.x+PLAYER_W/2,target.y+PLAYER_H/2,12,'#7be0ff',3,18,3); target.fx='🛡️'; target.fxT=14; return false; }  // Force Field blocks it
+  if(target.stats && target.stats.flags.forcefield){ burstP(target.x+PLAYER_W/2,target.y+PLAYER_H/2,12,'#7be0ff',3,18,3); target.fx='ð¡ï¸'; target.fxT=14; return false; }  // Force Field blocks it
   // weapons knock the victim BACKWARD (lose ground) and stun hard
   if(kind==='punch'){ target.stun=46; target.vx=-13; target.vy=-8; target.fx='POW!'; }
   else if(kind==='sword'){ target.stun=56; target.vx=-6; target.vy=-6; target.fx='SLASH!'; }
-  else if(kind==='freeze'){ target.stun=240; target.vx=0; target.vy=0; target.frozenT=240; target.fx='🧊 FROZEN!'; }
+  else if(kind==='freeze'){ target.stun=240; target.vx=0; target.vy=0; target.frozenT=240; target.fx='ð§ FROZEN!'; }
   else { target.stun=50; target.vx=-9; target.vy=-7; target.fx='SPIN!'; }   // sling
   target.fxT=28; target.invuln=Math.max(target.invuln,26); target.grounded=false;
   burstP(target.x+PLAYER_W/2, target.y+PLAYER_H/2, 16, kind==='freeze'?'#9af3ff':'#ffd24d', 4.5, 24, 3.4);
@@ -1002,25 +1003,25 @@ function doWeapon(p){
   const wp = p.stats.flags.weapon;
   if(!wp || p.weaponCd>0) return false;
   const fwd = p.facing||1, fire=(t,cd)=>{ p.fx=t; p.fxT=20; p.weaponCd=cd; p.weaponCdMax=cd; p.atkT=14; };
-  if(wp==='sword'){ const tgt=nearestAhead(p,72); if(tgt) hitPlayer(tgt,p.x,'sword'); fire('🗡️',55); sfx(p,'spikes'); return true; }
-  if(wp==='punch'){ const tgt=nearestAhead(p,92); if(tgt) hitPlayer(tgt,p.x,'punch'); fire('🥊',70); sfx(p,'poundhit'); return true; }
-  if(wp==='sling'){ shots.push({x:p.x+PLAYER_W/2+fwd*14, y:p.y+PLAYER_H*0.42, vx:fwd*12, owner:p.idx, life:95, kind:'sling'}); fire('🏹',42); sfx(p,'select'); return true; }
-  if(wp==='bomb'){ shots.push({x:p.x+PLAYER_W/2+fwd*14, y:p.y+PLAYER_H*0.3, vx:fwd*8, vy:-5, owner:p.idx, life:70, kind:'bomb', grav:true}); fire('💣',85); sfx(p,'select'); return true; }
-  if(wp==='freeze'){ shots.push({x:p.x+PLAYER_W/2+fwd*14, y:p.y+PLAYER_H*0.42, vx:fwd*14, owner:p.idx, life:80, kind:'freeze'}); fire('❄️',70); sfx(p,'blink'); return true; }
+  if(wp==='sword'){ const tgt=nearestAhead(p,72); if(tgt) hitPlayer(tgt,p.x,'sword'); fire('ð¡ï¸',55); sfx(p,'spikes'); return true; }
+  if(wp==='punch'){ const tgt=nearestAhead(p,92); if(tgt) hitPlayer(tgt,p.x,'punch'); fire('ð¥',70); sfx(p,'poundhit'); return true; }
+  if(wp==='sling'){ shots.push({x:p.x+PLAYER_W/2+fwd*14, y:p.y+PLAYER_H*0.42, vx:fwd*12, owner:p.idx, life:95, kind:'sling'}); fire('ð¹',42); sfx(p,'select'); return true; }
+  if(wp==='bomb'){ shots.push({x:p.x+PLAYER_W/2+fwd*14, y:p.y+PLAYER_H*0.3, vx:fwd*8, vy:-5, owner:p.idx, life:70, kind:'bomb', grav:true}); fire('ð£',85); sfx(p,'select'); return true; }
+  if(wp==='freeze'){ shots.push({x:p.x+PLAYER_W/2+fwd*14, y:p.y+PLAYER_H*0.42, vx:fwd*14, owner:p.idx, life:80, kind:'freeze'}); fire('âï¸',70); sfx(p,'blink'); return true; }
   if(wp==='lightning'){
     // GAME-BREAKER: strike every OTHER racer down for ~3 seconds
     for(const o of players){ if(o===p||o.finished) continue;
-      o.stun=180; o.vx=0; o.vy=-5; o.fx='⚡ZAP!'; o.fxT=46; o.invuln=0; o.grounded=false; o.lightT=34;
+      o.stun=180; o.vx=0; o.vy=-5; o.fx='â¡ZAP!'; o.fxT=46; o.invuln=0; o.grounded=false; o.lightT=34;
       burstP(o.x+PLAYER_W/2, o.y+PLAYER_H/2, 22, '#fff7a0', 5, 30, 4);
     }
-    lightningFlash=30; fire('⚡ STRIKE!', 60*9); SFX.cannon(); if(p.idx===0) SFX.finish(); return true;
+    lightningFlash=30; fire('â¡ STRIKE!', 60*9); SFX.cannon(); if(p.idx===0) SFX.finish(); return true;
   }
   return false;
 }
 const WEAPON_KEY = {sword:'F (slash)', sling:'F (fire)', punch:'F (punch)', bomb:'F (lob bomb)', lightning:'F (STRIKE!)'};
 
 function updatePlayer(p, started){
-  if(MP.on && p.netId !== MP.myId){ if(started) mpApplyRemote(p); return; }   // remote racer → play back the network
+  if(MP.on && p.netId !== MP.myId){ if(started) mpApplyRemote(p); return; }   // remote racer â play back the network
   if(p.finished){ // glide to a stop past the line
     p.vx*=0.9; p.x+=p.vx; return;
   }
@@ -1029,7 +1030,7 @@ function updatePlayer(p, started){
   const inp = (MP.on ? (p.netId===MP.myId) : (p.idx===0)) ? humanInput(p) : aiInput(p);
   const st = p.stats, fl = st.flags;
 
-  // are we overlapping a ladder this frame? (anyone can climb — keeps it always-passable)
+  // are we overlapping a ladder this frame? (anyone can climb â keeps it always-passable)
   const pbox = {x:p.x,y:p.y,w:PLAYER_W,h:PLAYER_H};
   let ladder=null;
   if(p.ladderCd<=0){ for(const t of triggers){ if(t.type==='ladder' && aabb(pbox,t)){ ladder=t; break; } } }
@@ -1039,7 +1040,7 @@ function updatePlayer(p, started){
   // slightly early (just before landing, or just before the cooldown ends)
   if(inp.ability) p.abBuffer = 8;
   if(inp.fire) p.fireBuf = 8;
-  if(inp.down && p.grounded) p.dropThru = 12;   // S → fall through the one-way platform you're standing on
+  if(inp.down && p.grounded) p.dropThru = 12;   // S â fall through the one-way platform you're standing on
 
   if(p.stun>0){ p.stun--; }
   else {
@@ -1048,7 +1049,7 @@ function updatePlayer(p, started){
     if(p.fireBuf>0 && doWeapon(p)) p.fireBuf = 0;   // weapon attack (F)
     // Jetpack: hold SHIFT for repeated upward thrust = controllable flight
     if(fl.ability==='flap' && inp.abilityHeld && p.flapCd<=0){
-      p.vy = Math.min(p.vy, 0) - 7.2; p.grounded=false; p.flapCd=9; p.fx='🔥'; p.fxT=8; sfx(p,'flap');
+      p.vy = Math.min(p.vy, 0) - 7.2; p.grounded=false; p.flapCd=9; p.fx='ð¥'; p.fxT=8; sfx(p,'flap');
     }
 
     // PHASE DASH: intangible, rocket forward through EVERYTHING (premium ability)
@@ -1061,12 +1062,12 @@ function updatePlayer(p, started){
     else if(p.drill>0){
       const maxSpd = BASE_SPEED * st.speed * p.speedJitter;
       p.vx = (p.facing||1) * maxSpd * 2.4; p.vy = 0;
-      p.y = GROUND_Y - PLAYER_H + 24;     // submerged — only the head pokes out of the dirt
+      p.y = GROUND_Y - PLAYER_H + 24;     // submerged â only the head pokes out of the dirt
       p.grounded = false;
       if(raceFrame%2===0) spawnP(p.x+PLAYER_W/2-(p.facing||1)*8, GROUND_Y-2, (Math.random()-0.5)*2-(p.facing||1)*1.6, -1-Math.random()*2.6, 22, '#7a5230', 2.6+Math.random()*1.6, 0.24);
       if(p.idx===0 && raceFrame%5===0) sfx(p,'slidewhoosh');
     }
-    // GRAPPLE ZIP: a sustained up-and-FORWARD pull (mostly horizontal → actually crosses gaps)
+    // GRAPPLE ZIP: a sustained up-and-FORWARD pull (mostly horizontal â actually crosses gaps)
     else if(p.grappleT>0){
       const maxSpd = BASE_SPEED * st.speed * p.speedJitter;
       p.vx = (p.facing||1) * Math.max(maxSpd*2.6, 14);
@@ -1074,11 +1075,11 @@ function updatePlayer(p, started){
       p.grounded=false; p.grappleT--;
       if(raceFrame%2===0) trailP(p.x+PLAYER_W/2, p.y+8, '#cfe8ff', 2.4);
     }
-    // SWING RIDE: a real PENDULUM — gravity swings you on the rope; you let go at the forward
+    // SWING RIDE: a real PENDULUM â gravity swings you on the rope; you let go at the forward
     // peak (or by jumping) and fly off with the rope's tangential velocity.
     else if(p.swingT>0){
       const g = BASE_GRAV*st.gravity;
-      p.swVel += -(g/p.swLen)*Math.sin(p.swAng);   // θ'' = -(g/L)·sinθ
+      p.swVel += -(g/p.swLen)*Math.sin(p.swAng);   // Î¸'' = -(g/L)Â·sinÎ¸
       p.swVel *= 0.997;                            // a touch of damping
       p.swAng += p.swVel;
       p.x = p.swPivX + p.swLen*Math.sin(p.swAng) - PLAYER_W/2;
@@ -1086,7 +1087,7 @@ function updatePlayer(p, started){
       p.vx=0; p.vy=0; p.grounded=false; p.swingT--;
       if(Math.abs(p.swVel)>0.004) p.facing = p.swVel>0?1:-1;
       const fwd=p.facing||1;
-      // release at the forward peak, on jump, or timeout → leave with tangential velocity
+      // release at the forward peak, on jump, or timeout â leave with tangential velocity
       if((p.swAng*fwd>0.55 && p.swVel*fwd<=0.01) || inp.jump || p.swingT<=0){
         const w=p.swVel, L=p.swLen, th=p.swAng;
         p.vx = L*w*Math.cos(th) + fwd*3;
@@ -1100,8 +1101,8 @@ function updatePlayer(p, started){
     // forward off the perch (the reward), then briefly ignores the ladder so you don't re-grab.
     else if(ladder && inp.jumpHeld){
       if(p.y <= ladder.y + 4){
-        // reached the perch top → fling forward & up
-        p.vy = -12; p.vx = (p.facing||1)*14; p.climbing=false; p.ladderCd=45; p.fx='🚀'; p.fxT=18;
+        // reached the perch top â fling forward & up
+        p.vy = -12; p.vx = (p.facing||1)*14; p.climbing=false; p.ladderCd=45; p.fx='ð'; p.fxT=18;
       } else {
         p.climbing = true;
         p.vy = -3.6; p.grounded=false;
@@ -1109,16 +1110,16 @@ function updatePlayer(p, started){
         p.vx = clamp((lc - (p.x+PLAYER_W/2))*0.2, -2, 2);
       }
     } else {
-      // horizontal (surface effects ONLY while grounded — fly/glide to avoid them)
+      // horizontal (surface effects ONLY while grounded â fly/glide to avoid them)
       let maxSpd = BASE_SPEED * st.speed * p.speedJitter;
-      if(p.slowT>0) maxSpd *= 0.30;                          // caught in a Time Warp — crawl
+      if(p.slowT>0) maxSpd *= 0.30;                          // caught in a Time Warp â crawl
       if(p.grounded && sectionHas(p.x,'sand')) maxSpd *= 0.50;
       if(p.grounded && sectionHas(p.x,'mud'))  maxSpd *= 0.32;
 
       const accel = p.grounded ? ACCEL_G : (fl.aircontrol?ACCEL_A*1.7:ACCEL_A);
       const dir = inp.dir;
       if(p.burn>0){
-        // AFTERBURNER: monster forward thrust, NO steering & NO braking — you're committed
+        // AFTERBURNER: monster forward thrust, NO steering & NO braking â you're committed
         p.vx = (p.facing||1) * maxSpd * 3.4; p.burn--;
       } else if(p.dash>0){
         p.vx = (p.facing||1) * maxSpd * 2.9; p.dash--;
@@ -1133,7 +1134,7 @@ function updatePlayer(p, started){
         p.vx *= p.grounded ? (icy?0.985:(fl.sticky?0.55:0.80)) : 0.97;
         if(Math.abs(p.vx)<0.05) p.vx=0;
       }
-      // zone forces — boost only while running on it; wind hits you everywhere
+      // zone forces â boost only while running on it; wind hits you everywhere
       if(p.grounded && sectionHas(p.x,'boost')) p.vx = clamp(p.vx+0.7, -maxSpd*2, maxSpd*2.4);
       if(sectionHas(p.x,'wind'))  p.vx -= 0.42;
 
@@ -1163,7 +1164,7 @@ function updatePlayer(p, started){
   // gravity (suspended while climbing, burrowing, zipping a grapple, swinging, or phasing)
   if(!p.climbing && p.drill<=0 && p.grappleT<=0 && p.swingT<=0 && p.phaseT<=0){
     p.vy += BASE_GRAV*st.gravity;
-    // glide — hold JUMP while falling to drift down slowly
+    // glide â hold JUMP while falling to drift down slowly
     if(fl.glide && inp.jumpHeld && p.vy>0) p.vy = Math.min(p.vy, 1.8);
     const term = fl.fallcap || TERMINAL;
     if(p.vy>term) p.vy=term;
@@ -1171,13 +1172,13 @@ function updatePlayer(p, started){
 
   // integrate + collide
   const wasGrounded = p.grounded;
-  const fallV = p.vy;            // collide will zero this — capture for landing fx
+  const fallV = p.vy;            // collide will zero this â capture for landing fx
   moveAndCollide(p);
 
   // landing effects
   if(p.grounded && !wasGrounded){
     p.djumpUsed=false;
-    if(p.pounding){ p.pounding=false; p.vx += (p.facing||1)*9; sfx(p,'poundhit'); } // slam → forward burst
+    if(p.pounding){ p.pounding=false; p.vx += (p.facing||1)*9; sfx(p,'poundhit'); } // slam â forward burst
     else if(fallV>4) sfx(p,'land');
     if(fl.autohop) p.vy = -JUMP_V*st.jump*0.55, p.grounded=false;
     else if(fl.bounce) p.vy = -JUMP_V*st.jump*0.7, p.grounded=false;
@@ -1199,14 +1200,14 @@ function updatePlayer(p, started){
         if(p.idx===0 && raceFrame%6===0) sfx(p,'slidewhoosh');
       } else { p.onSlide = null; }
     } else if(p.onSlide){
-      // just shot off the bottom of the chute → fast & LOW exit (not a leap into the air)
+      // just shot off the bottom of the chute â fast & LOW exit (not a leap into the air)
       const fwd=p.facing||1, maxSpd = BASE_SPEED*st.speed*p.speedJitter;
       p.vx = fwd*Math.max(Math.abs(p.vx), maxSpd*2.4); p.vy = Math.max(p.vy, 1);
       p.fx='WHEEE!'; p.fxT=20; sfx(p,'slide'); p.onSlide = null;
     }
   }
 
-  // --- SEESAW RIDE: a big tilting plank — your weight tips it, you ride over the hump and the
+  // --- SEESAW RIDE: a big tilting plank â your weight tips it, you ride over the hump and the
   // downhill side carries you forward. NO bounce (real teeter-totter feel).
   for(const ss of seesaws){
     const cxp=p.x+PLAYER_W/2;
@@ -1221,7 +1222,7 @@ function updatePlayer(p, started){
     }
   }
 
-  // triggers (pads / hazards) — punchier across the board
+  // triggers (pads / hazards) â punchier across the board
   const pb = {x:p.x,y:p.y,w:PLAYER_W,h:PLAYER_H};
   for(const t of triggers){
     if(aabb(pb,t)){
@@ -1249,12 +1250,12 @@ function updatePlayer(p, started){
         if(p.padCd<=0){ p.vy=-17; p.vx=fwd*23; p.grounded=false; p.padCd=34; p.fx='BLAST!'; p.fxT=24; sfx(p,'cannon'); burstP(t.x+t.w/2,t.y+t.h/2,14,'#ff7b00',5,22,3.5); }
       } else if(t.type==='zipline' || t.type==='skyring'){
         // JUICY HOOPS: fly through for a strong chained boost + a sparkle pop
-        if(p.padCd<=0){ p.vx=fwd*Math.max(Math.abs(p.vx),16); p.padCd=4; sfx(p,'ring'); p.fx='✦'; p.fxT=10; t._lit=10; burstP(t.x+t.w/2,t.y+t.h/2,10,'#9af3ff',3.5,18,3); }
+        if(p.padCd<=0){ p.vx=fwd*Math.max(Math.abs(p.vx),16); p.padCd=4; sfx(p,'ring'); p.fx='â¦'; p.fxT=10; t._lit=10; burstP(t.x+t.w/2,t.y+t.h/2,10,'#9af3ff',3.5,18,3); }
       } else if(t.type==='updraft'){
         p.vy -= 1.15; if(p.vy < -9) p.vy = -9; p.grounded=false;
         if(raceFrame%3===0) spawnP(t.x+t.w*Math.random(), GROUND_Y-Math.random()*20, 0,-2-Math.random()*2, 26, 'rgba(180,225,255,.8)', 2, -0.02);
       } else if(t.type==='swing'){
-        // grab the swing → set up the pendulum (pivot, rope length, a backswing so gravity carries you forward)
+        // grab the swing â set up the pendulum (pivot, rope length, a backswing so gravity carries you forward)
         if(p.swingT<=0 && p.ladderCd<=0){
           const f=p.facing||1;
           p.swPivX = t.x+t.w/2; p.swPivY = t.y-22; p.swLen = Math.max(70, (t.y+t.h-12)-(t.y-22));
@@ -1267,7 +1268,7 @@ function updatePlayer(p, started){
       }
     }
   }
-  // TIMED HAZARDS — all stun-based (never respawn), so you TIME them instead of holding forward
+  // TIMED HAZARDS â all stun-based (never respawn), so you TIME them instead of holding forward
   const sticky = p.stats.flags.sticky;
   for(const t of triggers){
     if(t.type==='pendulum'){
@@ -1294,13 +1295,13 @@ function updatePlayer(p, started){
       }
     }
   }
-  // banana traps — hit someone else's banana and you spin out
+  // banana traps â hit someone else's banana and you spin out
   for(let bi=dropped.length-1; bi>=0; bi--){ const b=dropped[bi];
     if(b.owner!==p.idx && p.invuln<=0 && p.stun<=0 && !fl.forcefield && Math.abs((p.x+PLAYER_W/2)-b.x)<22 && (p.y+PLAYER_H)>b.y-30){
       p.stun=p.stats.flags.sticky?14:34; p.vx*=-0.3; p.vy=-4; p.fx='SPIN OUT!'; p.fxT=28; sfx(p,'wipeout'); burstP(b.x,b.y,12,'#ffe24d',3,20,3); dropped.splice(bi,1);
     }
   }
-  // teleporter portals — enter A, pop out at B (a shortcut / chaos)
+  // teleporter portals â enter A, pop out at B (a shortcut / chaos)
   for(const pr of portals){ if(pr.cd>0) continue;
     if(Math.abs((p.x+PLAYER_W/2)-pr.ax)<24 && Math.abs((p.y+PLAYER_H/2)-pr.ay)<44){
       p.x=pr.bx-PLAYER_W/2; p.y=pr.by-PLAYER_H; p.padCd=8; pr.cd=24;
@@ -1333,10 +1334,10 @@ function updatePlayer(p, started){
   // bounds
   if(p.x<0){p.x=0; if(p.vx<0)p.vx=0;}
 
-  // fell off the world (below even the tunnel) → respawn (playground has no deadly pits, so this rarely fires)
+  // fell off the world (below even the tunnel) â respawn (playground has no deadly pits, so this rarely fires)
   if(!p.finished && p.y > GROUND_Y + 330){ respawnSection(p); }
 
-  // collect coins — FIRST racer to a coin takes it; it then vanishes for everyone (compete!)
+  // collect coins â FIRST racer to a coin takes it; it then vanishes for everyone (compete!)
   if(!p.finished && coins.length){
     const reach = 13 + (p.coinMag||0)*0.5, cx2=p.x+PLAYER_W/2, cy2=p.y+PLAYER_H/2;
     for(const c of coins){
@@ -1362,7 +1363,7 @@ function updatePlayer(p, started){
 function moveAndCollide(p){
   const skipAll  = p.drill>0 || p.phaseT>0;      // burrowing / phasing: ignore ALL collision
   const skipPlat = p.climbing || p.swingT>0;     // climbing/swinging: phase past platforms (you're on a rope)
-  // horizontal — ONE-WAY platforms ('plat') never block sideways; you pass through them
+  // horizontal â ONE-WAY platforms ('plat') never block sideways; you pass through them
   const STEP_H = 24; // ledges this short are auto-stepped (never block you)
   p.x += p.vx;
   let box = {x:p.x,y:p.y,w:PLAYER_W,h:PLAYER_H};
@@ -1467,10 +1468,10 @@ function raceTick(){
     return;
   }
 
-  // camera follows the LOCAL racer — horizontally, and VERTICALLY when you go high or underground
+  // camera follows the LOCAL racer â horizontally, and VERTICALLY when you go high or underground
   const me = localP();
   cameraX = clamp(me.x - CW*0.32, 0, TRACK_LEN - CW);
-  const dev = (me.y+PLAYER_H) - GROUND_Y;                 // feet relative to ground (+ underground, − up high)
+  const dev = (me.y+PLAYER_H) - GROUND_Y;                 // feet relative to ground (+ underground, â up high)
   const tY = clamp(dev*0.9, -135, 215);
   cameraY += (tY - cameraY)*0.10;
   if(Math.abs(cameraY)<0.4) cameraY=0;
@@ -1622,13 +1623,13 @@ function draw(){
     ctx.fillRect(sx, GROUND_Y, SEC_W, 6);
     // zone tint for boost/wind
     for(const t of mods){
-      if(t==='boost'){ stripeZone(sx,'#ff8a3d','→'); }
-      else if(t==='wind'){ stripeZone(sx,'#9fb6c9','←'); }
+      if(t==='boost'){ stripeZone(sx,'#ff8a3d','â'); }
+      else if(t==='wind'){ stripeZone(sx,'#9fb6c9','â'); }
     }
     // section divider + theme label
     ctx.fillStyle='rgba(255,255,255,.35)'; ctx.fillRect(sx,0,2,CH);
     ctx.fillStyle='rgba(255,255,255,.85)'; ctx.font='bold 12px Segoe UI';
-    ctx.fillText(`S${i+1} · ${th.icon} ${th.name}`, sx+10, 18);
+    ctx.fillText(`S${i+1} Â· ${th.icon} ${th.name}`, sx+10, 18);
   }
 
   // chasms: carve the gap (the void shows through) + danger-striped lips
@@ -1646,10 +1647,10 @@ function draw(){
     const zones=[[c.x,CAVE_STEP,GROUND_Y+22],[c.x+CAVE_STEP,CAVE_STEP,GROUND_Y+44],
       [c.x+2*CAVE_STEP,c.fw,GROUND_Y+CAVE_D],[c.x+2*CAVE_STEP+c.fw,CAVE_STEP,GROUND_Y+44],[c.x+3*CAVE_STEP+c.fw,CAVE_STEP,GROUND_Y+22]];
     for(const z of zones){ ctx.fillStyle='#e0c87a'; ctx.fillRect(z[0],z[2],z[1]+1,CH-z[2]); ctx.fillStyle='#f0dca0'; ctx.fillRect(z[0],z[2],z[1]+1,5); }
-    ctx.fillStyle='#a07c2a'; ctx.font='12px Segoe UI'; ctx.textAlign='center'; ctx.fillText('🏖️ dig!', c.x+c.w/2, GROUND_Y+16); ctx.textAlign='left';
+    ctx.fillStyle='#a07c2a'; ctx.font='12px Segoe UI'; ctx.textAlign='center'; ctx.fillText('ðï¸ dig!', c.x+c.w/2, GROUND_Y+16); ctx.textAlign='left';
   }
 
-  // SEPARATED TUNNELS — a hollow under a solid grass ceiling; drop in the entry, run the floor,
+  // SEPARATED TUNNELS â a hollow under a solid grass ceiling; drop in the entry, run the floor,
   // climb the exit ramp out. (Vertical camera reveals it.)
   for(const tn of tunnelSpans){
     ctx.fillStyle='#241a10'; ctx.fillRect(tn.x0, GROUND_Y, tn.x1-tn.x0, TUN_D+8);          // dark hollow
@@ -1661,19 +1662,19 @@ function draw(){
     ctx.fillStyle='#e0c87a'; ctx.fillRect(tn.x0, tn.fy, tn.bx1-tn.x0, 50);
     const steps=7, sw=TUN_EXIT/steps;
     for(let k=0;k<steps;k++){ const sy=tn.fy-(k+1)*(TUN_D/steps); ctx.fillRect(tn.bx1+k*sw, sy, sw+1, 60); }
-    // one-way exit platform (grass top — top runners cross it, tunnellers pop up through it)
+    // one-way exit platform (grass top â top runners cross it, tunnellers pop up through it)
     ctx.fillStyle='#7a5230'; ctx.fillRect(tn.bx1, GROUND_Y, tn.x1-tn.bx1, 18);
     ctx.fillStyle='#5fb04a'; ctx.fillRect(tn.bx1, GROUND_Y, tn.x1-tn.bx1, 7);
     // labels
     ctx.fillStyle='#ffd24d'; ctx.font='bold 12px Segoe UI'; ctx.textAlign='center';
-    ctx.fillText('⬇ TUNNEL', tn.x0+TUN_ENTRY/2, GROUND_Y-6);
-    ctx.fillStyle='#caa84a'; ctx.fillText('EXIT ⬆', tn.x1-TUN_EXIT/2, tn.fy-TUN_D+24); ctx.textAlign='left';
+    ctx.fillText('â¬ TUNNEL', tn.x0+TUN_ENTRY/2, GROUND_Y-6);
+    ctx.fillStyle='#caa84a'; ctx.fillText('EXIT â¬', tn.x1-TUN_EXIT/2, tn.fy-TUN_D+24); ctx.textAlign='left';
   }
 
   // slide ramps (the ridable surface, drawn as a slick chute)
   for(const s of slideRamps) drawSlide(s);
 
-  // see-saws — a plank on a fulcrum, tilting under the rider
+  // see-saws â a plank on a fulcrum, tilting under the rider
   for(const ss of seesaws){
     const cx=ss.x+ss.w/2, tilt=ss.tilt||0;
     ctx.fillStyle='#7a5230'; ctx.beginPath(); ctx.moveTo(cx-13,GROUND_Y); ctx.lineTo(cx+13,GROUND_Y); ctx.lineTo(cx,ss.py-1); ctx.closePath(); ctx.fill(); // fulcrum
@@ -1686,13 +1687,13 @@ function draw(){
   }
 
 
-  // base platforms — varied playground styles (one-way: jump up through, land on top)
+  // base platforms â varied playground styles (one-way: jump up through, land on top)
   for(const b of baseLayout) drawPlatform(b);
   // triggers
   for(const t of triggers){
     if(t.type==='spring'){
       ctx.fillStyle='#c98bff'; ctx.fillRect(t.x,t.y,t.w,t.h);
-      ctx.fillStyle='#fff'; ctx.font='bold 12px Segoe UI'; ctx.fillText('↑',t.x+t.w/2-4,t.y+11);
+      ctx.fillStyle='#fff'; ctx.font='bold 12px Segoe UI'; ctx.fillText('â',t.x+t.w/2-4,t.y+11);
     } else if(t.type==='bounce'){
       ctx.fillStyle='#ff5fb0'; roundRect(t.x,t.y,t.w,t.h,4); ctx.fill();
       ctx.fillStyle='rgba(255,255,255,.7)'; ctx.fillRect(t.x+4,t.y+2,t.w-8,2);
@@ -1701,7 +1702,7 @@ function draw(){
       ctx.fillStyle='#5a3550'; ctx.fillRect(t.x+3,t.y+t.h-2,6,12); ctx.fillRect(t.x+t.w-9,t.y+t.h-2,6,12);
       ctx.strokeStyle='#ff6fae'; ctx.lineWidth=6; ctx.lineCap='round';
       ctx.beginPath(); ctx.moveTo(t.x+4,t.y+t.h-3); ctx.quadraticCurveTo(t.x+t.w/2, t.y-8, t.x+t.w-4, t.y+t.h-3); ctx.stroke(); ctx.lineCap='butt';
-      ctx.fillStyle='#ffd24d'; ctx.font='bold 13px Segoe UI'; ctx.textAlign='center'; ctx.fillText('⤒', t.x+t.w/2, t.y-4); ctx.textAlign='left';
+      ctx.fillStyle='#ffd24d'; ctx.font='bold 13px Segoe UI'; ctx.textAlign='center'; ctx.fillText('â¤', t.x+t.w/2, t.y-4); ctx.textAlign='left';
     } else if(t.type==='seesaw'){
       const cx2=t.x+t.w/2, tilt=Math.sin(raceFrame*0.05+t.x)*0.13;
       ctx.fillStyle='#9c6b3f'; ctx.beginPath(); ctx.moveTo(cx2-7,t.y+t.h+6); ctx.lineTo(cx2+7,t.y+t.h+6); ctx.lineTo(cx2,t.y-6); ctx.closePath(); ctx.fill(); // pivot
@@ -1712,7 +1713,7 @@ function draw(){
     } else if(t.type==='sandbox'){
       ctx.fillStyle='#e8d39a'; ctx.fillRect(t.x,t.y,t.w,t.h+12);
       ctx.fillStyle='#d4bd7e'; for(let sx2=t.x+8;sx2<t.x+t.w;sx2+=24){ ctx.fillRect(sx2,t.y+3,12,2); }
-      ctx.fillStyle='#caa84a'; ctx.font='13px Segoe UI Emoji'; ctx.fillText('🏖️', t.x+10, t.y+t.h+1);
+      ctx.fillStyle='#caa84a'; ctx.font='13px Segoe UI Emoji'; ctx.fillText('ðï¸', t.x+10, t.y+t.h+1);
     } else if(t.type==='spikes'){
       ctx.fillStyle='#7a1d12'; ctx.fillRect(t.x, t.y+t.h-5, t.w, 5); // base bar
       ctx.fillStyle='#d23b27';
@@ -1720,7 +1721,7 @@ function draw(){
       ctx.fillStyle='rgba(255,255,255,.5)';
       for(let i=0;i<t.w-2;i+=18){ ctx.beginPath(); ctx.moveTo(t.x+i+9,t.y); ctx.lineTo(t.x+i+12,t.y+8); ctx.lineTo(t.x+i+9,t.y+8); ctx.fill(); }
     } else if(t.type==='thorns'){
-      // spiky thorn bush — hit it → back to the section start
+      // spiky thorn bush â hit it â back to the section start
       ctx.fillStyle='#3a6b2a'; ctx.beginPath(); ctx.ellipse(t.x+t.w/2,t.y+t.h-2,t.w/2,t.h*0.62,0,0,7); ctx.fill();
       ctx.strokeStyle='#244a1a'; ctx.lineWidth=2.5;
       for(let i=2;i<t.w;i+=9){ const tx=t.x+i; ctx.beginPath(); ctx.moveTo(tx,t.y+t.h-4); ctx.lineTo(tx+((i/9|0)%2?5:-5), t.y-3); ctx.stroke(); }
@@ -1729,9 +1730,9 @@ function draw(){
     } else if(t.type==='boostpad'){
       ctx.fillStyle='#ffd23d'; roundRect(t.x,t.y,t.w,t.h,4); ctx.fill();
       ctx.fillStyle='#a06b00'; ctx.font='bold 17px Segoe UI'; ctx.textAlign='center';
-      ctx.fillText('»»»', t.x+t.w/2, t.y+t.h-3); ctx.textAlign='left';
+      ctx.fillText('Â»Â»Â»', t.x+t.w/2, t.y+t.h-3); ctx.textAlign='left';
     } else if(t.type==='lava'){
-      // glowing, bubbling lava pool — touch it and you're back at the section start
+      // glowing, bubbling lava pool â touch it and you're back at the section start
       const g=ctx.createLinearGradient(0,t.y,0,t.y+t.h+20);
       g.addColorStop(0,'#ffe14d'); g.addColorStop(0.5,'#ff7a1f'); g.addColorStop(1,'#c41a00');
       ctx.fillStyle=g; ctx.fillRect(t.x,t.y,t.w,t.h+18);
@@ -1794,12 +1795,12 @@ function draw(){
         const grd=ctx.createLinearGradient(0,GROUND_Y-h,0,GROUND_Y); grd.addColorStop(0,'rgba(190,230,255,.15)'); grd.addColorStop(1,'rgba(150,210,255,.75)');
         ctx.fillStyle=grd; ctx.fillRect(t.gx-t.w/2+6, GROUND_Y-h, t.w-12, h);
       } else {
-        ctx.fillStyle='#6cf'; ctx.font='13px Segoe UI Emoji'; ctx.textAlign='center'; ctx.fillText('💧', t.gx, GROUND_Y-12); ctx.textAlign='left';
+        ctx.fillStyle='#6cf'; ctx.font='13px Segoe UI Emoji'; ctx.textAlign='center'; ctx.fillText('ð§', t.gx, GROUND_Y-12); ctx.textAlign='left';
       }
     } else if(t.type==='updraft'){
       ctx.save(); ctx.fillStyle='rgba(150,210,255,.22)'; ctx.fillRect(t.x,t.y,t.w,t.h);
       ctx.fillStyle='rgba(255,255,255,.55)'; ctx.font='26px Segoe UI';
-      for(let yy=t.y+30; yy<t.y+t.h; yy+=70){ ctx.fillText('⤊', t.x+t.w/2-9, yy); }
+      for(let yy=t.y+30; yy<t.y+t.h; yy+=70){ ctx.fillText('â¤', t.x+t.w/2-9, yy); }
       ctx.restore();
     } else if(t.type==='ladder'){
       // decorative perch slab on top
@@ -1813,7 +1814,7 @@ function draw(){
       for(let ry=t.y+8; ry<t.y+t.h; ry+=14){ ctx.moveTo(t.x+3,ry); ctx.lineTo(t.x+t.w-3,ry); }
       ctx.stroke();
     } else if(t.type==='swing'){
-      // a real swing seat on two ropes, swaying — jump in to ride it
+      // a real swing seat on two ropes, swaying â jump in to ride it
       const cx=t.x+t.w/2, topY=t.y-26, sway=Math.sin((raceFrame+t.x)*0.05)*16;
       const seatY=t.y+t.h-12, seatX=cx+sway;
       ctx.strokeStyle='#7a5230'; ctx.lineWidth=5; ctx.beginPath(); ctx.moveTo(cx-32,topY); ctx.lineTo(cx+32,topY); ctx.stroke(); // crossbar
@@ -1824,7 +1825,7 @@ function draw(){
     }
   }
 
-  // warp portals (blue entry → purple exit)
+  // warp portals (blue entry â purple exit)
   for(const pr of portals){
     for(const e of [{x:pr.ax,y:pr.ay,c:'#7be0ff'},{x:pr.bx,y:pr.by,c:'#c77bff'}]){
       ctx.save(); ctx.shadowColor=e.c; ctx.shadowBlur=16; ctx.strokeStyle=e.c; ctx.lineWidth=5;
@@ -1836,12 +1837,12 @@ function draw(){
   for(const b of dropped){
     ctx.save(); ctx.translate(b.x,b.y); ctx.font='20px Segoe UI Emoji'; ctx.textAlign='center';
     if(b.life<90 && Math.floor(raceFrame/6)%2===0) ctx.globalAlpha=0.5;   // blink before expiring
-    ctx.fillText('🍌',0,7); ctx.restore();
+    ctx.fillText('ð',0,7); ctx.restore();
   }
   ctx.textAlign='left';
   // weapon projectiles (pebbles / lobbed bombs)
   for(const s of shots){
-    if(s.kind==='bomb'){ ctx.font='18px Segoe UI Emoji'; ctx.textAlign='center'; ctx.fillText('💣', s.x, s.y+6); ctx.textAlign='left'; }
+    if(s.kind==='bomb'){ ctx.font='18px Segoe UI Emoji'; ctx.textAlign='center'; ctx.fillText('ð£', s.x, s.y+6); ctx.textAlign='left'; }
     else if(s.kind==='freeze'){ ctx.fillStyle='#9af3ff'; ctx.beginPath(); ctx.arc(s.x,s.y,6,0,7); ctx.fill(); ctx.fillStyle='rgba(255,255,255,.75)'; ctx.beginPath(); ctx.arc(s.x-2,s.y-2,2.5,0,7); ctx.fill(); if(Math.random()<0.5) spawnP(s.x,s.y,(Math.random()-0.5)*1.5,(Math.random()-0.5)*1.5,12,'#bff',2,0); }
     else { ctx.fillStyle='#6b5030'; ctx.beginPath(); ctx.arc(s.x, s.y, 5, 0, 7); ctx.fill(); ctx.fillStyle='rgba(255,255,255,.45)'; ctx.beginPath(); ctx.arc(s.x-1, s.y-1, 2, 0, 7); ctx.fill(); }
   }
@@ -1849,7 +1850,7 @@ function draw(){
   // particles (under players so trails sit behind them)
   drawParticles();
 
-  // coins — vanish once anyone grabs them
+  // coins â vanish once anyone grabs them
   for(const c of coins){
     if(c.got) continue;
     const sp = 0.5+0.5*Math.abs(Math.sin(raceFrame*0.09 + c.x*0.04));   // spin
@@ -1958,7 +1959,7 @@ function drawPlayer(p){
     const ax = mx + dir*70, ay = headTop - 80;
     ctx.strokeStyle='#d8d0c0'; ctx.lineWidth=2;
     ctx.beginPath(); ctx.moveTo(mx, headTop+6); ctx.lineTo(ax, ay); ctx.stroke();
-    ctx.fillStyle='#cfd6e0'; ctx.font='14px Segoe UI Emoji'; ctx.textAlign='center'; ctx.fillText('🪝', ax, ay+2); ctx.textAlign='left';
+    ctx.fillStyle='#cfd6e0'; ctx.font='14px Segoe UI Emoji'; ctx.textAlign='center'; ctx.fillText('ðª', ax, ay+2); ctx.textAlign='left';
   }
   // SWING: draw the two ropes from the pivot bar down to the rider
   if(p.swingT>0 && p.swPivX!==undefined){
@@ -2044,25 +2045,25 @@ function drawHUD(){
   const curTh = themeAtX(localP().x);
   ctx.fillStyle='rgba(10,16,30,.7)'; ctx.fillRect(20,8,330,30);
   ctx.fillStyle='#fff'; ctx.font='bold 15px Segoe UI';
-  ctx.fillText(MP.on ? `🏁 RACE  ·  ${curTh.icon} ${curTh.name}` : `RACE ${raceNum+1}/${RACES}  ·  ${curTh.icon} ${curTh.name}`, 30, 28);
+  ctx.fillText(MP.on ? `ð RACE  Â·  ${curTh.icon} ${curTh.name}` : `RACE ${raceNum+1}/${RACES}  Â·  ${curTh.icon} ${curTh.name}`, 30, 28);
 
-  // sudden-death clock — once someone finishes, everyone else has 15s
+  // sudden-death clock â once someone finishes, everyone else has 15s
   if(firstFinishFrame>=0 && started){
     const left = Math.ceil((SUDDEN_DEATH_FRAMES - (raceFrame-firstFinishFrame))/60);
     ctx.fillStyle = left<=5 ? 'rgba(200,30,30,.9)' : 'rgba(10,16,30,.7)';
     ctx.fillRect(CW/2-90,8,180,30);
     ctx.fillStyle='#fff'; ctx.font='bold 16px Segoe UI'; ctx.textAlign='center';
-    ctx.fillText(`⏱ ${Math.max(0,left)}s — FINISH!`, CW/2, 28); ctx.textAlign='left';
+    ctx.fillText(`â± ${Math.max(0,left)}s â FINISH!`, CW/2, 28); ctx.textAlign='left';
   }
 
-  // your coin bank (single-player only — multiplayer has no shop yet)
+  // your coin bank (single-player only â multiplayer has no shop yet)
   if(!MP.on){ const meC=localP();
     ctx.fillStyle='rgba(10,16,30,.72)'; roundRect(20,62,210,28,6); ctx.fill();
-    ctx.fillStyle='#ffd24d'; ctx.font='bold 16px Segoe UI'; ctx.fillText(`💰 ${meC.coins}`, 30, 81);
+    ctx.fillStyle='#ffd24d'; ctx.font='bold 16px Segoe UI'; ctx.fillText(`ð° ${meC.coins}`, 30, 81);
     ctx.fillStyle='#bfe49a'; ctx.font='12px Segoe UI'; ctx.fillText(`+${meC.raceCoins} this race`, 96, 81);
   }
 
-  // scoreboard (top-right) — MP: live race position; SP: points + coins
+  // scoreboard (top-right) â MP: live race position; SP: points + coins
   const sorted = MP.on ? [...players].sort((a,b)=>(b.x)-(a.x)) : [...players].sort((a,b)=>b.points-a.points);
   ctx.fillStyle='rgba(10,16,30,.7)'; ctx.fillRect(CW-210,8,190,Math.max(48, players.length*19+12));
   ctx.font='12px Segoe UI';
@@ -2070,17 +2071,17 @@ function drawHUD(){
     ctx.fillStyle=p.color; ctx.fillRect(CW-202,16+i*19,10,10);
     ctx.fillStyle = (MP.on? (p.netId===MP.myId) : (p.idx===0))?'#ffd24d':'#fff';
     ctx.fillText(`${p.name}`, CW-186,25+i*19);
-    if(MP.on){ ctx.fillStyle='#bfe49a'; ctx.fillText(p.finished?'✓ done':(i+1)+(['st','nd','rd'][i]||'th'), CW-66,25+i*19); }
-    else { ctx.fillText(`${p.points}p`, CW-72,25+i*19); ctx.fillStyle='#caa84a'; ctx.fillText(`💰${p.coins}`, CW-48,25+i*19); }
+    if(MP.on){ ctx.fillStyle='#bfe49a'; ctx.fillText(p.finished?'â done':(i+1)+(['st','nd','rd'][i]||'th'), CW-66,25+i*19); }
+    else { ctx.fillText(`${p.points}p`, CW-72,25+i*19); ctx.fillStyle='#caa84a'; ctx.fillText(`ð°${p.coins}`, CW-48,25+i*19); }
   });
 
   // controls hint (bottom-left)
   ctx.fillStyle='rgba(10,16,30,.55)'; ctx.fillRect(20, CH-30, 520, 24);
   ctx.fillStyle='#cfe0ff'; ctx.font='12px Segoe UI';
-  ctx.fillText(MP.on ? '←→/AD move   ↑/W jump   S drop   M '+(soundOn?'mute':'unmute')
-                     : '←→/AD move   ↑/W jump   S drop   SPACE ability   F attack   M '+(soundOn?'mute':'unmute'), 30, CH-14);
+  ctx.fillText(MP.on ? 'ââ/AD move   â/W jump   S drop   M '+(soundOn?'mute':'unmute')
+                     : 'ââ/AD move   â/W jump   S drop   SPACE ability   F attack   M '+(soundOn?'mute':'unmute'), 30, CH-14);
 
-  // ability pill (bottom-right) — only when you actually own an ability
+  // ability pill (bottom-right) â only when you actually own an ability
   const me=localP();
   if(me.build.ability && me.build.ability.mods.ability){
     const ab = me.build.ability.mods.ability;
@@ -2096,9 +2097,9 @@ function drawHUD(){
     ctx.font='bold 12px Segoe UI';
     ctx.fillText(`${key}: ${me.build.ability.name}`, pillX+10, pillY+13);
     ctx.fillStyle = ready ? '#bfffd0' : '#cdd8ec'; ctx.font='11px Segoe UI';
-    ctx.fillText(ab==='djump' ? 'always available' : (ready?'READY':'charging…'), pillX+10, pillY+25);
+    ctx.fillText(ab==='djump' ? 'always available' : (ready?'READY':'chargingâ¦'), pillX+10, pillY+25);
   }
-  // weapon pill (bottom-right, just left of the ability pill) — when you own a weapon
+  // weapon pill (bottom-right, just left of the ability pill) â when you own a weapon
   if(me.build.weapon && me.build.weapon.mods.weapon){
     const pillW=176, pillX=CW-210-20-pillW-10, pillY=CH-34, pillH=28;
     ctx.fillStyle='rgba(10,16,30,.8)'; roundRect(pillX,pillY,pillW,pillH,6); ctx.fill();
@@ -2108,7 +2109,7 @@ function drawHUD(){
     ctx.fillStyle = ready ? '#ff9ec2' : '#ffd24d'; ctx.font='bold 12px Segoe UI';
     ctx.fillText(`F: ${me.build.weapon.name}`, pillX+10, pillY+13);
     ctx.fillStyle = ready ? '#ffd0e2' : '#cdd8ec'; ctx.font='11px Segoe UI';
-    ctx.fillText(ready?'ARMED':'reloading…', pillX+10, pillY+25);
+    ctx.fillText(ready?'ARMED':'reloadingâ¦', pillX+10, pillY+25);
   }
 }
 
@@ -2132,22 +2133,22 @@ function setState(s){
 // ---- RESULTS ----
 function showResults(mult){
   $('resultTitle').textContent = `Race ${raceNum+1} results`;
-  $('resultSub').textContent = mult>1 ? '★ Final race — points were DOUBLED!' : 'Points: 4 / 3 / 2 / 1';
+  $('resultSub').textContent = mult>1 ? 'â Final race â points were DOUBLED!' : 'Points: 4 / 3 / 2 / 1';
   const tbl=$('resultTable'); tbl.innerHTML='';
   lastFinishOrder.forEach((p,i)=>{
     const tr=document.createElement('tr'); if(p.idx===0) tr.className='you';
-    tr.innerHTML=`<td>${['🥇','🥈','🥉','4th'][i]}</td>
+    tr.innerHTML=`<td>${['ð¥','ð¥','ð¥','4th'][i]}</td>
       <td><span class="swatch" style="background:${p.color}"></span>${p.name}</td>
-      <td>+${p.gained}p</td><td><b>${p.points}</b>p</td><td style="color:#ffd24d">+💰${(p.coinGained||0)+(p.raceCoins||0)}</td>`;
+      <td>+${p.gained}p</td><td><b>${p.points}</b>p</td><td style="color:#ffd24d">+ð°${(p.coinGained||0)+(p.raceCoins||0)}</td>`;
     tbl.appendChild(tr);
   });
   const me=players[0];
-  $('resultFlavor').innerHTML = `You finished <b>${['1st','2nd','3rd','4th'][me.place-1]}</b> and banked <b style="color:#ffd24d">💰${(me.coinGained||0)+(me.raceCoins||0)}</b> this race `+
-    `(💰${me.raceCoins} grabbed on track + 💰${me.coinGained||0} placement). You now have <b style="color:#ffd24d">💰${me.coins}</b>.<br><br>`+
+  $('resultFlavor').innerHTML = `You finished <b>${['1st','2nd','3rd','4th'][me.place-1]}</b> and banked <b style="color:#ffd24d">ð°${(me.coinGained||0)+(me.raceCoins||0)}</b> this race `+
+    `(ð°${me.raceCoins} grabbed on track + ð°${me.coinGained||0} placement). You now have <b style="color:#ffd24d">ð°${me.coins}</b>.<br><br>`+
     (raceNum<RACES-1
-      ? 'Spend it in the <b>🛒 shop</b> next — abilities, faster run, higher jump, lower gravity… build up before the track gets meaner.'
-      : 'That was the final race — the racer with the most <b>points</b> wins.');
-  $('resultNext').textContent = raceNum<RACES-1 ? 'TO THE SHOP 🛒 →' : 'SEE FINAL STANDINGS →';
+      ? 'Spend it in the <b>ð shop</b> next â abilities, faster run, higher jump, lower gravityâ¦ build up before the track gets meaner.'
+      : 'That was the final race â the racer with the most <b>points</b> wins.');
+  $('resultNext').textContent = raceNum<RACES-1 ? 'TO THE SHOP ð â' : 'SEE FINAL STANDINGS â';
   setState('results');
 }
 $('resultNext').onclick=()=>{
@@ -2193,7 +2194,7 @@ $('shopRefresh').onclick = ()=>{
 };
 function renderShop(){
   const me = players[0];
-  $('shopCoins').textContent = `💰 ${me.coins}`;
+  $('shopCoins').textContent = `ð° ${me.coins}`;
   const wrap = $('shopItems'); wrap.innerHTML='';
   const section = (title, items)=>{
     if(!items || !items.length) return;
@@ -2205,25 +2206,25 @@ function renderShop(){
       const owned = it.slot && me.owned.has(it.key);
       const price = it.slot ? it.cost : statCost(me, it);
       const can   = !owned && me.coins >= price;
-      const lvl   = (!it.slot && me.bought[it.key]) ? ` <span style="color:#7CFFA0">×${me.bought[it.key]}</span>` : '';
+      const lvl   = (!it.slot && me.bought[it.key]) ? ` <span style="color:#7CFFA0">Ã${me.bought[it.key]}</span>` : '';
       const c = document.createElement('div');
       c.className = 'card' + (owned ? ' owned' : (can ? '' : ' cant'));
-      c.innerHTML = `<div class="cost">${owned ? 'OWNED' : '💰'+price}</div>`+
-        `<div class="cname"><span class="cicon">${it.icon||'•'}</span>${it.name}${lvl}</div>`+
+      c.innerHTML = `<div class="cost">${owned ? 'OWNED' : 'ð°'+price}</div>`+
+        `<div class="cname"><span class="cicon">${it.icon||'â¢'}</span>${it.name}${lvl}</div>`+
         `<div class="cdesc">${it.desc}</div>`;
       if(can) c.onclick = ()=>{ initAudio(); resumeAudio(); if(buyItem(me,it)){ SFX.coinbuy(); renderShop(); } };
       row.appendChild(c);
     }
     wrap.appendChild(row);
   };
-  section('🔁 Boosts — stack as many as you can afford', shopOfferList.boosts);
-  section('✨ Abilities — SPACE', shopOfferList.abilities);
-  section('⚔️ Weapons — F', shopOfferList.weapons);
-  section('🎒 Gear', shopOfferList.gear);
+  section('ð Boosts â stack as many as you can afford', shopOfferList.boosts);
+  section('â¨ Abilities â SPACE', shopOfferList.abilities);
+  section('âï¸ Weapons â F', shopOfferList.weapons);
+  section('ð Gear', shopOfferList.gear);
   const b = me.build;
   $('shopBuild').innerHTML =
-    `<b>Your racer:</b> ${b.helmet.icon||'—'} ${b.helmet.name} · ${b.gravity.icon} ${b.gravity.name} · ${b.shoes.icon} ${b.shoes.name} · ${b.ability.icon||'—'} ${b.ability.name} · ⚔️ ${b.weapon.name}`+
-    ` &nbsp;|&nbsp; run ×${me.bonus.speed.toFixed(2)} · jump ×${me.bonus.jump.toFixed(2)} · gravity ×${me.bonus.gravity.toFixed(2)}`;
+    `<b>Your racer:</b> ${b.helmet.icon||'â'} ${b.helmet.name} Â· ${b.gravity.icon} ${b.gravity.name} Â· ${b.shoes.icon} ${b.shoes.name} Â· ${b.ability.icon||'â'} ${b.ability.name} Â· âï¸ ${b.weapon.name}`+
+    ` &nbsp;|&nbsp; run Ã${me.bonus.speed.toFixed(2)} Â· jump Ã${me.bonus.jump.toFixed(2)} Â· gravity Ã${me.bonus.gravity.toFixed(2)}`;
   $('shopRefreshCost').textContent = shopRefreshCost;
   $('shopRefresh').disabled = me.coins < shopRefreshCost;
 }
@@ -2235,14 +2236,14 @@ function showFinal(){
   const tbl=$('finalTable'); tbl.innerHTML='';
   sorted.forEach((p,i)=>{
     const tr=document.createElement('tr'); if(p.idx===0) tr.className='you';
-    tr.innerHTML=`<td>${['🥇','🥈','🥉','4th'][i]}</td>
+    tr.innerHTML=`<td>${['ð¥','ð¥','ð¥','4th'][i]}</td>
       <td><span class="swatch" style="background:${p.color}"></span>${p.name}</td>
-      <td><b>${p.points}</b> pts</td><td style="color:#caa84a">💰${p.coins}</td>`;
+      <td><b>${p.points}</b> pts</td><td style="color:#caa84a">ð°${p.coins}</td>`;
     tbl.appendChild(tr);
   });
   const meRank = sorted.findIndex(p=>p.idx===0)+1;
   if(meRank===1) SFX.win(); else SFX.finish();
-  $('finalTitle').textContent = meRank===1 ? '🏆 You win the tournament!' : `Tournament over — you placed ${['1st','2nd','3rd','4th'][meRank-1]}`;
+  $('finalTitle').textContent = meRank===1 ? 'ð You win the tournament!' : `Tournament over â you placed ${['1st','2nd','3rd','4th'][meRank-1]}`;
   $('finalFlavor').innerHTML = `The final track ended up themed like this:<br><br>`+
     sections.map((s,i)=>`<b>S${i+1}:</b> ${secTheme(i).icon} ${secTheme(i).name}`).join('<br>');
   setState('final');
@@ -2266,8 +2267,8 @@ window.addEventListener('keyup',e=>{ keys[e.key]=false; });
 
 //////////////////// MULTIPLAYER (Firebase Realtime DB) ////////////////////
 // Model: every client runs the SAME track (shared seed). You simulate YOUR OWN racer
-// with real physics and broadcast its position ~20×/sec; other racers are drawn by
-// playing back their broadcasts. Casual client-authoritative netcode — perfect for friends.
+// with real physics and broadcast its position ~20Ã/sec; other racers are drawn by
+// playing back their broadcasts. Casual client-authoritative netcode â perfect for friends.
 const MP = { on:false, db:null, myId:null, mySlot:0, isHost:false, hostId:null, code:null, ref:null,
   order:[], data:{}, remote:{}, seed:1, lastSend:0 };
 function lobbyStatus(t){ const e=$('lobbyStatus'); if(e) e.textContent=t; }
@@ -2275,14 +2276,14 @@ function myName(){ return (($('nameInput').value||'').trim().slice(0,10))||'Play
 function randCode(){ let c=''; const A='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; for(let i=0;i<4;i++) c+=A[Math.floor(Math.random()*A.length)]; return c; }
 function mpInit(){
   try{
-    if(typeof firebase==='undefined'){ lobbyStatus('⚠ Firebase SDK didn\'t load (need an internet connection).'); return; }
+    if(typeof firebase==='undefined'){ lobbyStatus('â  Firebase SDK didn\'t load (need an internet connection).'); return; }
     if(!window.firebaseConfig || firebaseConfig.apiKey==='PASTE_ME'){
-      lobbyStatus('⚠ No Firebase config yet. Paste your firebaseConfig at the top of race.html, then reload.');
+      lobbyStatus('â  No Firebase config yet. Paste your firebaseConfig at the top of race.html, then reload.');
       $('createBtn').disabled=true; $('joinBtn').disabled=true; return;
     }
     firebase.initializeApp(firebaseConfig); MP.db = firebase.database();
-    lobbyStatus('Connected ✓  Create a room, or enter a friend\'s code to join.');
-  }catch(e){ lobbyStatus('⚠ Firebase error: '+(e&&e.message||e)); }
+    lobbyStatus('Connected â  Create a room, or enter a friend\'s code to join.');
+  }catch(e){ lobbyStatus('â  Firebase error: '+(e&&e.message||e)); }
 }
 function mpCreate(){ if(MP.db) mpEnterRoom(randCode(), true); }
 function mpJoin(){
@@ -2316,13 +2317,13 @@ function renderLobby(){
   const list=$('playerList'); if(!list) return; list.innerHTML='';
   MP.order.forEach((id,i)=>{ const d=MP.data[id]||{}, me=id===MP.myId;
     const r=document.createElement('div'); r.style.cssText='display:flex;align-items:center;gap:10px;padding:6px 0;font-size:15px';
-    r.innerHTML=`<span class="swatch" style="background:${COLORS[i%4]}"></span><b style="color:${me?'#ffd24d':'#fff'}">${d.name||'Player'}${me?' (you)':''}${id===MP.hostId?' 👑':''}</b><span style="margin-left:auto;color:${d.ready?'#7CFFA0':'#8595b0'}">${d.ready?'✓ ready':'…not ready'}</span>`;
+    r.innerHTML=`<span class="swatch" style="background:${COLORS[i%4]}"></span><b style="color:${me?'#ffd24d':'#fff'}">${d.name||'Player'}${me?' (you)':''}${id===MP.hostId?' ð':''}</b><span style="margin-left:auto;color:${d.ready?'#7CFFA0':'#8595b0'}">${d.ready?'â ready':'â¦not ready'}</span>`;
     list.appendChild(r);
   });
   const allReady = MP.order.length>=2 && MP.order.every(id=>MP.data[id]&&MP.data[id].ready);
   $('startBtn').style.display = MP.isHost?'':'none'; $('startBtn').disabled=!allReady;
-  $('roomHint').textContent = MP.order.length<2 ? 'Share the code — waiting for at least one more racer…'
-    : (MP.isHost ? (allReady?'Everyone\'s ready — hit START!':'Waiting for everyone to ready up…') : 'Waiting for the host to start…');
+  $('roomHint').textContent = MP.order.length<2 ? 'Share the code â waiting for at least one more racerâ¦'
+    : (MP.isHost ? (allReady?'Everyone\'s ready â hit START!':'Waiting for everyone to ready upâ¦') : 'Waiting for the host to startâ¦');
 }
 function mpToggleReady(){ const cur=MP.data[MP.myId]&&MP.data[MP.myId].ready; MP.ref.child('players/'+MP.myId+'/ready').set(!cur); }
 function mpHostStart(){ if(MP.isHost) MP.ref.update({ seed:Math.floor(Math.random()*1e9)+1, state:'race' }); }
@@ -2357,12 +2358,12 @@ function mpBroadcast(){
 function mpResults(){
   const order = lastFinishOrder.length ? lastFinishOrder : [...players].sort((a,b)=>b.x-a.x);
   $('resultTitle').textContent='Race results';
-  $('resultSub').textContent = (order[0]&&order[0].netId===MP.myId) ? '🏆 You won!' : `🏁 ${order[0]?order[0].name:'—'} wins!`;
+  $('resultSub').textContent = (order[0]&&order[0].netId===MP.myId) ? 'ð You won!' : `ð ${order[0]?order[0].name:'â'} wins!`;
   const tbl=$('resultTable'); tbl.innerHTML='';
   order.forEach((p,i)=>{ const tr=document.createElement('tr'); if(p.netId===MP.myId) tr.className='you';
-    tr.innerHTML=`<td>${['🥇','🥈','🥉','4th'][i]||(i+1)+'th'}</td><td><span class="swatch" style="background:${p.color}"></span>${p.name}${p.netId===MP.myId?' (you)':''}</td>`; tbl.appendChild(tr); });
-  $('resultFlavor').innerHTML = MP.isHost ? 'Hit <b>REMATCH</b> for a fresh track.' : 'Waiting for the host to start a rematch…';
-  $('resultNext').textContent = 'REMATCH →'; $('resultNext').style.display = MP.isHost?'':'none';
+    tr.innerHTML=`<td>${['ð¥','ð¥','ð¥','4th'][i]||(i+1)+'th'}</td><td><span class="swatch" style="background:${p.color}"></span>${p.name}${p.netId===MP.myId?' (you)':''}</td>`; tbl.appendChild(tr); });
+  $('resultFlavor').innerHTML = MP.isHost ? 'Hit <b>REMATCH</b> for a fresh track.' : 'Waiting for the host to start a rematchâ¦';
+  $('resultNext').textContent = 'REMATCH â'; $('resultNext').style.display = MP.isHost?'':'none';
   $('resultNext').onclick = ()=>{ SFX.select(); mpRematch(); };
   setState('results');
 }
