@@ -2367,7 +2367,7 @@ function mpResults(){
   showResults(mult);
   if(raceNum < RACES-1){
     $('resultNext').textContent = 'TO THE SHOP 🛒 →';
-    $('resultNext').onclick = ()=>{ SFX.select(); MP.isHost ? mpShopDone() : showShop(); };
+    $('resultNext').onclick = ()=>{ SFX.select(); if(MP.isHost) MP.ref.update({state:'shop'}); showShop(); };
   } else {
     $('resultNext').textContent = 'SEE FINAL STANDINGS →';
     $('resultNext').onclick = ()=>{ SFX.select(); showFinal(); };
