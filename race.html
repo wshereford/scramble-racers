@@ -2356,6 +2356,8 @@ function mpBroadcast(){
 // MP results screen — awards coins + shows shop between races (4-race series)
 function mpResults(){
   if(state!=='race') return;
+  const leftOver=players.filter(p=>!p.finished).sort((a,b)=>b.x-a.x);
+  for(const p of leftOver){ p.finished=true; lastFinishOrder.push(p); p.place=lastFinishOrder.length; }
   const ptsTable = [4,3,2,1];
   const mult = (raceNum === RACES-1) ? 2 : 1;
   lastFinishOrder.forEach((p,i)=>{
