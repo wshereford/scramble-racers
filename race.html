@@ -1420,7 +1420,7 @@ function startRace(){
     p.speedJitter = i===0?1.0:(0.95+Math.random()*0.09);
   });
   particles=[]; dropped=[]; shots=[];
-  raceFrame=0; countdown=180; started=false; cameraX=0; cameraY=0;
+  raceFrame=0; MP.lastSend=0; countdown=180; started=false; cameraX=0; cameraY=0;
   lastCountShown=-1; firstFinishFrame=-1;
   setState('race');
   startMusic();
