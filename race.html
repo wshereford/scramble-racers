@@ -2340,6 +2340,7 @@ function mpStartRace(){
   lastFinishOrder=[];
   RNG = mulberry32(MP.seed); rebuildTrackObjects(); buildCoins(); RNG = Math.random;
   players.forEach((p,i)=>{ p.stats=computeStats(p.build); p.x=60+i*8; p.y=GROUND_Y-PLAYER_H; p.vx=0; p.vy=0; p.grounded=true; p.facing=1; p.finished=false; p.place=0; p.speedJitter=1.0; });
+  MP.remote={}; try{ MP.ref.child('live').remove(); }catch(e){}
   particles=[]; dropped=[]; shots=[];
   raceFrame=0; countdown=180; started=false; cameraX=0; cameraY=0; lastCountShown=-1; firstFinishFrame=-1;
   setState('race'); startMusic();
