@@ -2299,7 +2299,7 @@ function mpEnterRoom(code, host){
   if(host) MP.ref.child('host').set(MP.myId);
   MP.ref.child('host').on('value', s=>{ MP.hostId=s.val(); MP.isHost=(s.val()===MP.myId); renderLobby(); });
   MP.ref.child('players').on('value', s=> onPlayers(s.val()||{}) );
-  MP.ref.child('state').on('value', s=> { if(s.val()==='race') mpStartRace(); else if(s.val()==='lobby') setState('lobby'); else if(s.val()==='done'&&state==='race') mpResults(); else if(s.val()==='shop'&&!MP.isHost) { showShop(); } });
+  MP.ref.child('state').on('value', s=> { if(s.val()==='race') mpStartRace(); else if(s.val()==='lobby' && state==='lobby') setState('lobby'); else if(s.val()==='done'&&state==='race') mpResults(); else if(s.val()==='shop'&&!MP.isHost) { showShop(); } });
   MP.ref.child('seed').on('value', s=>{ if(s.val()) MP.seed=s.val(); });
   MP.ref.child('live').on('value', s=>{ MP.remote=s.val()||{}; });
   $('lobbyEntry').style.display='none'; $('lobbyRoom').style.display=''; $('roomCode').textContent=code;
