@@ -2140,7 +2140,7 @@ function showResults(mult){
       <td>+${p.gained}p</td><td><b>${p.points}</b>p</td><td style="color:#ffd24d">+💰${(p.coinGained||0)+(p.raceCoins||0)}</td>`;
     tbl.appendChild(tr);
   });
-  const me=players[0];
+  const me=MP.on ? localP() : players[0];
   $('resultFlavor').innerHTML = `You finished <b>${['1st','2nd','3rd','4th'][me.place-1]}</b> and banked <b style="color:#ffd24d">💰${(me.coinGained||0)+(me.raceCoins||0)}</b> this race `+
     `(💰${me.raceCoins} grabbed on track + 💰${me.coinGained||0} placement). You now have <b style="color:#ffd24d">💰${me.coins}</b>.<br><br>`+
     (raceNum<RACES-1
@@ -2226,7 +2226,7 @@ function renderShop(){
   $('shopRefreshCost').textContent = shopRefreshCost;
   $('shopRefresh').disabled = me.coins < shopRefreshCost;
 }
-$('shopDone').onclick = ()=>{ SFX.select(); raceNum++; startRace(); };
+$('shopDone').onclick = ()=>{ SFX.select(); if(MP.on){ mpShopDone(); } else { raceNum++; startRace(); } };
 
 // ---- FINAL ----
 function showFinal(){
@@ -2291,7 +2291,7 @@ function mpJoin(){
   MP.db.ref('rooms/'+code+'/exists').once('value', s=>{ if(!s.exists()){ lobbyStatus('Room '+code+' not found.'); return; } mpEnterRoom(code,false); });
 }
 function mpEnterRoom(code, host){
-  MP.on=true; MP.code=code; MP.isHost=host; MP.ref=MP.db.ref('rooms/'+code);
+  MP.on=true; MP.code=code; MP.isHost=host; MP.ref=MP.db.ref('rooms/'+code); raceNum=0;
   if(host) MP.ref.update({ exists:true, state:'lobby', seed:0 });
   const pref = MP.ref.child('players').push(); MP.myId=pref.key;
   pref.set({ name:myName(), ready:false, t:firebase.database.ServerValue.TIMESTAMP });
@@ -2299,7 +2299,7 @@ function mpEnterRoom(code, host){
   if(host) MP.ref.child('host').set(MP.myId);
   MP.ref.child('host').on('value', s=>{ MP.hostId=s.val(); MP.isHost=(s.val()===MP.myId); renderLobby(); });
   MP.ref.child('players').on('value', s=> onPlayers(s.val()||{}) );
-  MP.ref.child('state').on('value', s=> { if(s.val()==='race') mpStartRace(); else if(s.val()==='lobby') setState('lobby'); else if(s.val()==='done'&&state==='race') mpResults(); });
+  MP.ref.child('state').on('value', s=> { if(s.val()==='race') mpStartRace(); else if(s.val()==='lobby') setState('lobby'); else if(s.val()==='done'&&state==='race') mpResults(); else if(s.val()==='shop'&&!MP.isHost) { showShop(); } });
   MP.ref.child('seed').on('value', s=>{ if(s.val()) MP.seed=s.val(); });
   MP.ref.child('live').on('value', s=>{ MP.remote=s.val()||{}; });
   $('lobbyEntry').style.display='none'; $('lobbyRoom').style.display=''; $('roomCode').textContent=code;
@@ -2325,7 +2325,7 @@ function renderLobby(){
 }
 function mpToggleReady(){ const cur=MP.data[MP.myId]&&MP.data[MP.myId].ready; MP.ref.child('players/'+MP.myId+'/ready').set(!cur); }
 function mpHostStart(){ if(MP.isHost) MP.ref.update({ seed:Math.floor(Math.random()*1e9)+1, state:'race' }); }
-function mpRematch(){ if(MP.isHost) MP.ref.update({ seed:Math.floor(Math.random()*1e9)+1, state:'race' }); }
+function mpShopDone(){ if(MP.isHost){ raceNum++; MP.ref.update({ seed:Math.floor(Math.random()*1e9)+1, state:'race' }); } }
 function localP(){ return MP.on ? (players[MP.mySlot]||players[0]) : players[0]; }
 
 // build the shared track + the players array, and start a synced race
@@ -2352,18 +2352,23 @@ function mpBroadcast(){
   const p=players[MP.mySlot]; if(!p) return;
   MP.ref.child('live/'+MP.myId).set({ x:Math.round(p.x), y:Math.round(p.y), vx:Math.round(p.vx*10)/10, vy:Math.round(p.vy*10)/10, f:p.facing||1, g:p.grounded?1:0, st:p.stun|0, fx:p.fx||'', fxT:p.fxT|0, fin:p.finished?1:0 });
 }
-// MP results screen (with rematch)
+// MP results screen — awards coins + shows shop between races (4-race series)
 function mpResults(){
-  const order = lastFinishOrder.length ? lastFinishOrder : [...players].sort((a,b)=>b.x-a.x);
-  $('resultTitle').textContent='Race results';
-  $('resultSub').textContent = (order[0]&&order[0].netId===MP.myId) ? '🏆 You won!' : `🏁 ${order[0]?order[0].name:'—'} wins!`;
-  const tbl=$('resultTable'); tbl.innerHTML='';
-  order.forEach((p,i)=>{ const tr=document.createElement('tr'); if(p.netId===MP.myId) tr.className='you';
-    tr.innerHTML=`<td>${['🥇','🥈','🥉','4th'][i]||(i+1)+'th'}</td><td><span class="swatch" style="background:${p.color}"></span>${p.name}${p.netId===MP.myId?' (you)':''}</td>`; tbl.appendChild(tr); });
-  $('resultFlavor').innerHTML = MP.isHost ? 'Hit <b>REMATCH</b> for a fresh track.' : 'Waiting for the host to start a rematch…';
-  $('resultNext').textContent = 'REMATCH →'; $('resultNext').style.display = MP.isHost?'':'none';
-  $('resultNext').onclick = ()=>{ SFX.select(); mpRematch(); };
-  setState('results');
+  if(state!=='race') return;
+  const ptsTable = [4,3,2,1];
+  const mult = (raceNum === RACES-1) ? 2 : 1;
+  lastFinishOrder.forEach((p,i)=>{
+    p.gained = ptsTable[i]*mult; p.points += p.gained;
+    p.coinGained = COIN_PAYOUT[i]; p.coins += p.coinGained;
+  });
+  showResults(mult);
+  if(raceNum < RACES-1){
+    $('resultNext').textContent = 'TO THE SHOP 🛒 →';
+    $('resultNext').onclick = ()=>{ SFX.select(); showShop(); };
+  } else {
+    $('resultNext').textContent = 'SEE FINAL STANDINGS →';
+    $('resultNext').onclick = ()=>{ SFX.select(); showFinal(); };
+  }
 }
 
 // lobby button wiring
