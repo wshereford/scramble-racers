@@ -2325,7 +2325,7 @@ function renderLobby(){
 }
 function mpToggleReady(){ const cur=MP.data[MP.myId]&&MP.data[MP.myId].ready; MP.ref.child('players/'+MP.myId+'/ready').set(!cur); }
 function mpHostStart(){ if(MP.isHost) MP.ref.update({ seed:Math.floor(Math.random()*1e9)+1, state:'race' }); }
-function mpShopDone(){ if(MP.isHost){ raceNum++; MP.ref.update({ seed:Math.floor(Math.random()*1e9)+1, state:'race' }); } }
+function mpShopDone(){ if(MP.isHost){ raceNum++; const seed=Math.floor(Math.random()*1e9)+1; MP.ref.child('state').set(null).then(()=>MP.ref.update({ seed, state:'race' })); } }
 function localP(){ return MP.on ? (players[MP.mySlot]||players[0]) : players[0]; }
 
 // build the shared track + the players array, and start a synced race
