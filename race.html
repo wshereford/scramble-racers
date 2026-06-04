@@ -2332,7 +2332,7 @@ function localP(){ return MP.on ? (players[MP.mySlot]||players[0]) : players[0];
 function mpStartRace(){
   RNG = mulberry32(MP.seed);
   sections = new Array(NUM_SECTIONS); for(let i=0;i<NUM_SECTIONS;i++) setTheme(i,'playground');
-  players = MP.order.map((id,i)=>{ const p=newPlayer(i); p.netId=id; p.name=(MP.data[id]&&MP.data[id].name)||('P'+(i+1)); p.color=COLORS[i%4]; const prev=players.find(p2=>p2.netId===id); p.build=prev?prev.build:freshBuild(); p.coins=prev?prev.coins:0; return p; });
+  players = MP.order.map((id,i)=>{ const p=newPlayer(i); p.netId=id; p.name=(MP.data[id]&&MP.data[id].name)||('P'+(i+1)); p.color=COLORS[i%4]; const prev=players.find(p2=>p2.netId===id); p.build=prev?prev.build:freshBuild(); p.coins=prev?prev.coins:0; p.bought=prev?prev.bought:{}; p.bonus=prev?{speed:prev.bonus.speed||1,jump:prev.bonus.jump||1,gravity:prev.bonus.gravity||1}:{speed:1,jump:1,gravity:1}; return p; });
   lastFinishOrder=[];
   RNG = mulberry32(MP.seed); rebuildTrackObjects(); buildCoins(); RNG = Math.random;
   players.forEach((p,i)=>{ p.stats=computeStats(p.build); p.x=60+i*8; p.y=GROUND_Y-PLAYER_H; p.vx=0; p.vy=0; p.grounded=true; p.facing=1; p.finished=false; p.place=0; p.speedJitter=1.0; });
