@@ -2174,7 +2174,7 @@ function cpuShop(p){
 }
 let shopOfferList = [], shopRefreshCost = 5;
 function showShop(){
-  for(let i=1;i<4;i++) cpuShop(players[i]);             // the CPUs spend their coins too
+  if(!MP.on){ for(let i=1;i<4;i++) cpuShop(players[i]); }             // the CPUs spend their coins too
   setTheme(Math.floor(Math.random()*NUM_SECTIONS), 'playground');  // re-roll a section's playground features so the track keeps changing
   shopOfferList = shopOffer(players[0]);
   shopRefreshCost = 5;
