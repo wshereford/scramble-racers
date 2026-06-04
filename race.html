@@ -2345,12 +2345,13 @@ function mpApplyRemote(p){
   const s = MP.remote && MP.remote[p.netId]; if(!s) return;
   p.x += (s.x-p.x)*0.4; p.y += (s.y-p.y)*0.4;
   p.vx=s.vx||0; p.vy=s.vy||0; p.facing=s.f||1; p.grounded=!!s.g; p.stun=s.st||0; p.fx=s.fx||''; p.fxT=s.fxT||0;
+  if(s.rc !== undefined) p.raceCoins = s.rc;
   if(s.fin && !p.finished){ p.finished=true; p.finishTime=raceFrame; lastFinishOrder.push(p); p.place=lastFinishOrder.length; if(lastFinishOrder.length===1 && firstFinishFrame<0) firstFinishFrame=raceFrame; }
 }
 function mpBroadcast(){
   if(!MP.on||!MP.ref) return; if(raceFrame-MP.lastSend<3) return; MP.lastSend=raceFrame;
   const p=players[MP.mySlot]; if(!p) return;
-  MP.ref.child('live/'+MP.myId).set({ x:Math.round(p.x), y:Math.round(p.y), vx:Math.round(p.vx*10)/10, vy:Math.round(p.vy*10)/10, f:p.facing||1, g:p.grounded?1:0, st:p.stun|0, fx:p.fx||'', fxT:p.fxT|0, fin:p.finished?1:0 });
+  MP.ref.child('live/'+MP.myId).set({ x:Math.round(p.x), y:Math.round(p.y), vx:Math.round(p.vx*10)/10, vy:Math.round(p.vy*10)/10, f:p.facing||1, g:p.grounded?1:0, st:p.stun|0, fx:p.fx||'', fxT:p.fxT|0, fin:p.finished?1:0, rc:Math.round(p.raceCoins||0) });
 }
 // MP results screen — awards coins + shows shop between races (4-race series)
 function mpResults(){
@@ -2364,7 +2365,7 @@ function mpResults(){
   showResults(mult);
   if(raceNum < RACES-1){
     $('resultNext').textContent = 'TO THE SHOP 🛒 →';
-    $('resultNext').onclick = ()=>{ SFX.select(); showShop(); };
+    $('resultNext').onclick = ()=>{ SFX.select(); MP.isHost ? mpShopDone() : showShop(); };
   } else {
     $('resultNext').textContent = 'SEE FINAL STANDINGS →';
     $('resultNext').onclick = ()=>{ SFX.select(); showFinal(); };
