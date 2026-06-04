@@ -2347,7 +2347,7 @@ function mpStartRace(){
 // play back a remote racer from its latest broadcast (smoothed)
 function mpApplyRemote(p){
   const s = MP.remote && MP.remote[p.netId]; if(!s) return;
-  if(s.fin && !started) return; // ignore stale finished-state data from previous race during countdown
+  if(s.fin && raceFrame < 300) return; // ignore stale fin:1 data for first 5s (covers 3s countdown + 2s buffer for Firebase delivery)
   p.x += (s.x-p.x)*0.4; p.y += (s.y-p.y)*0.4;
   p.vx=s.vx||0; p.vy=s.vy||0; p.facing=s.f||1; p.grounded=!!s.g; p.stun=s.st||0; p.fx=s.fx||''; p.fxT=s.fxT||0;
   if(s.rc !== undefined) p.raceCoins = s.rc;
