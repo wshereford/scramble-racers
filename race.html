@@ -2341,14 +2341,13 @@ function mpStartRace(){
   RNG = mulberry32(MP.seed); rebuildTrackObjects(); buildCoins(); RNG = Math.random;
   players.forEach((p,i)=>{ p.stats=computeStats(p.build); p.x=60+i*8; p.y=GROUND_Y-PLAYER_H; p.vx=0; p.vy=0; p.grounded=true; p.facing=1; p.finished=false; p.place=0; p.speedJitter=1.0; });
   particles=[]; dropped=[]; shots=[];
-  // Immediately broadcast starting position so other clients see fresh data during countdown
-  if(MP.on && MP.ref){ const sp=players[MP.mySlot]; if(sp) MP.ref.child('live/'+MP.myId).set({x:Math.round(sp.x),y:Math.round(sp.y),vx:0,vy:0,f:1,g:1,st:0,fx:'',fxT:0,fin:0,rc:0}); }
   raceFrame=0; countdown=180; started=false; cameraX=0; cameraY=0; lastCountShown=-1; firstFinishFrame=-1;
   setState('race'); startMusic();
 }
 // play back a remote racer from its latest broadcast (smoothed)
 function mpApplyRemote(p){
   const s = MP.remote && MP.remote[p.netId]; if(!s) return;
+  if(s.fin && !started) return; // ignore stale finished-state data from previous race during countdown
   p.x += (s.x-p.x)*0.4; p.y += (s.y-p.y)*0.4;
   p.vx=s.vx||0; p.vy=s.vy||0; p.facing=s.f||1; p.grounded=!!s.g; p.stun=s.st||0; p.fx=s.fx||''; p.fxT=s.fxT||0;
   if(s.rc !== undefined) p.raceCoins = s.rc;
