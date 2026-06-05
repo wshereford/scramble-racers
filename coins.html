@@ -2379,6 +2379,61 @@ resetMatch();
 buildBaseLayout();
 showDraft();
 loop();
+
+// ============ TRAILER / ATTRACT MODE — open  coins.html?trailer  to use ============
+// Auto-plays a montage of bot races showing off every ability, with synth music + on-screen
+// titles. Built for screen-recording a Steam trailer: open it in your browser, start your
+// recorder (OBS, or Windows Win+G), click Play. It runs in a visible tab so it stays smooth
+// AND has real sound — unlike a headless capture. Tweak the SC scene list / labels below.
+function runTrailer(){
+  const cv=document.querySelector('canvas'), CW=cv.width, CH=cv.height;
+  [...cv.parentElement.children].forEach(el=>{ if(el!==cv) el.style.display='none'; });   // hide HTML HUD panels
+  humanInput = aiInput;
+  const ABIL={flap:{name:'Jetpack',icon:'🛸',desc:'',mods:{ability:'flap'}},dash:{name:'Dash',icon:'💨',desc:'',mods:{ability:'dash'}},grapple:{name:'Grapple',icon:'🪝',desc:'',mods:{ability:'grapple'}},superjump:{name:'Super Jump',icon:'⬆️',desc:'',mods:{ability:'superjump'}},blink:{name:'Blink',icon:'✨',desc:'',mods:{ability:'blink'}}};
+  const WPN={sword:{name:'Sword',icon:'🗡️',desc:'',mods:{weapon:'sword'}},bomb:{name:'Bomb',icon:'💣',desc:'',mods:{weapon:'bomb'}},sling:{name:'Sling',icon:'🏹',desc:'',mods:{weapon:'sling'}},punch:{name:'Glove',icon:'🥊',desc:'',mods:{weapon:'punch'}}};
+  const MIXAB=['flap','dash','grapple','superjump'],MIXWP=['sword','bomb','sling','punch'];
+  const SC=[{t0:0,ab:'flap',wp:'sword',label:null},{t0:2.7,ab:'dash',wp:'bomb',label:'DASH PAST RIVALS'},{t0:5.4,ab:'grapple',wp:'sling',label:'GRAPPLE & SWING'},{t0:8.1,ab:'flap',wp:'punch',label:'FLY OVER HAZARDS'},{t0:10.8,ab:'superjump',wp:'sword',label:'LEAP THE COURSE'},{t0:13.5,ab:'blink',wp:'bomb',label:'BLINK AHEAD'},{t0:16.2,ab:'MIX',wp:'MIX',label:'SABOTAGE WITH WEAPONS'},{t0:18.9,ab:'MIX',wp:'MIX',label:'EVERY RACE IS DIFFERENT'},{t0:21.6,ab:'flap',wp:'sword',label:null}];
+  for(let i=0;i<SC.length;i++) SC[i].t1=(i<SC.length-1)?SC[i+1].t0:25.4;
+  const TOTAL=25.4;
+  const ac=new (window.AudioContext||window.webkitAudioContext)(); const master=ac.createGain(); master.gain.value=0.7; master.connect(ac.destination);
+  try{ ac.resume(); }catch(e){}
+  const now=ac.currentTime+0.15;
+  const osc=(t,f,d,ty,vol,det)=>{const o=ac.createOscillator(),g=ac.createGain();o.type=ty;o.frequency.setValueAtTime(f,t);if(det)o.detune.value=det;o.connect(g);g.connect(master);g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(vol,t+0.012);g.gain.exponentialRampToValueAtTime(0.0001,t+d);o.start(t);o.stop(t+d+0.05);};
+  const kick=(t,v)=>{const o=ac.createOscillator(),g=ac.createGain();o.frequency.setValueAtTime(150,t);o.frequency.exponentialRampToValueAtTime(45,t+0.12);g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(0.0001,t+0.22);o.connect(g);g.connect(master);o.start(t);o.stop(t+0.24);};
+  const noise=(t,d,v,hp)=>{const n=ac.createBufferSource(),b=ac.createBuffer(1,Math.ceil(ac.sampleRate*d),ac.sampleRate),dd=b.getChannelData(0);for(let i=0;i<dd.length;i++)dd[i]=Math.random()*2-1;n.buffer=b;const f=ac.createBiquadFilter();f.type='highpass';f.frequency.value=hp||2000;const g=ac.createGain();g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(0.0001,t+d);n.connect(f);f.connect(g);g.connect(master);n.start(t);n.stop(t+d+0.02);};
+  const snare=(t,v)=>{noise(t,0.18,v,1500);osc(t,180,0.12,'triangle',v*0.4);},hat=(t,v)=>noise(t,0.04,v,7000),crash=(t,v)=>noise(t,0.8,v,3500);
+  const pad=(t,fr,d,v)=>fr.forEach(f=>{osc(t,f,d,'sawtooth',v*0.5,7);osc(t,f,d,'sawtooth',v*0.5,-7);});
+  const beat=60/140,bar=4*beat,prog=[{bass:110,chord:[220,261.63,329.63]},{bass:87.31,chord:[174.61,220,261.63]},{bass:130.81,chord:[261.63,329.63,392]},{bass:98,chord:[196,246.94,293.66]}];
+  const leads=[[[0,659.25,1.5],[2,523.25,1],[3,587.33,1]],[[0,698.46,1.5],[2,880,1],[3,698.46,1]],[[0,783.99,1.5],[2,659.25,1],[3,523.25,1]],[[0,587.33,1],[1,659.25,1],[2,783.99,2]]];
+  for(let bn=0;bn<14;bn++){const t=now+bn*bar,idx=bn%4,ch=prog[idx],full=bn>=2,ld=bn>=4;pad(t,ch.chord,bar*0.98,full?0.10:0.07);for(let e=0;e<8;e++)osc(t+e*(beat/2),ch.bass,beat*0.45,'sawtooth',0.16);if(full){for(let q=0;q<4;q++){kick(t+q*beat,0.7);if(q%2===1)snare(t+q*beat,0.5);hat(t+q*beat,0.18);hat(t+q*beat+beat/2,0.13);}osc(t,ch.bass*2,beat*0.8,'sawtooth',0.12);osc(t,ch.bass*3,beat*0.8,'sawtooth',0.10);}if(bn%4===2)crash(t,0.35);if(ld)leads[idx].forEach(a=>osc(t+a[0]*beat,a[1],a[2]*beat*0.95,'square',0.13));}
+  const tEnd=now+14*bar;crash(tEnd,0.5);pad(tEnd,prog[0].chord,bar*1.4,0.14);osc(tEnd,110,bar*1.4,'sawtooth',0.18);
+  const cn=(v,a,b)=>Math.max(a,Math.min(b,v)); let cur=-1, sf=0;
+  function setup(s){ startRace(); started=true; countdown=0; players.forEach((p,i)=>{const ab=s.ab==='MIX'?MIXAB[i]:s.ab,wp=s.wp==='MIX'?MIXWP[i]:s.wp;p.build.ability=ABIL[ab];p.build.weapon=WPN[wp];p.stats=computeStats(p.build);p.abilityCd=0;p.weaponCd=0;p.speedJitter=0.96+i*0.025;}); }
+  function force(s,f){const heavy=/SABOTAGE/.test(s.label||'');players.forEach((p,i)=>{const ab=s.ab==='MIX'?MIXAB[i]:s.ab;if(ab==='flap'){if(p.y>195&&f%6===0){p.abilityCd=0;p.abBuffer=8;}}else if((f+i*5)%16===0){p.abilityCd=0;p.abBuffer=8;}if((f+i*9)%(heavy?16:38)===0){p.weaponCd=0;p.fireBuf=8;}});}
+  const recStart=performance.now();
+  const bigCard=(tx,sub,el,t0,t1)=>{if(el<t0||el>t1)return;const dt=el-t0,len=t1-t0,a=cn(Math.min(dt/0.5,(len-dt)/0.5),0,1);ctx.save();ctx.setTransform(1,0,0,1,0,0);ctx.textAlign='center';ctx.globalAlpha=a*0.5;ctx.fillStyle='#0a0e18';ctx.fillRect(0,0,CW,CH);ctx.globalAlpha=a;ctx.fillStyle='#ffd24d';ctx.font='900 60px Segoe UI, Arial Black, sans-serif';ctx.shadowColor='rgba(0,0,0,.6)';ctx.shadowBlur=12;ctx.fillText(tx,CW/2,CH/2-4);if(sub){ctx.fillStyle='#eaf0ff';ctx.font='600 22px Segoe UI';ctx.fillText(sub,CW/2,CH/2+36);}ctx.restore();};
+  const band=(tx,el,t0,t1)=>{if(el<t0||el>t1)return;const dt=el-t0,len=t1-t0,a=cn(Math.min(dt/0.4,(len-dt)/0.4),0,1);ctx.save();ctx.setTransform(1,0,0,1,0,0);ctx.textAlign='center';ctx.globalAlpha=a;const by=CH-150;ctx.fillStyle='rgba(10,14,24,0.74)';ctx.fillRect(0,by,CW,54);ctx.fillStyle='#ffd24d';ctx.fillRect(0,by,7,54);ctx.fillStyle='#fff';ctx.font='800 28px Segoe UI, Arial, sans-serif';ctx.shadowColor='rgba(0,0,0,.5)';ctx.shadowBlur=6;ctx.fillText(tx,CW/2,by+36);ctx.restore();};
+  const origDraw=draw;
+  draw=function(){ const el=(performance.now()-recStart)/1000;
+    if(el>=TOTAL+0.4){ draw=origDraw; try{ac.close();}catch(e){} const d=document.createElement('div'); d.style.cssText='position:fixed;inset:0;background:rgba(8,12,24,.85);display:flex;align-items:center;justify-content:center;z-index:99999;color:#eaf0ff;font:700 24px Segoe UI;cursor:pointer'; d.textContent='▶ Replay trailer'; d.onclick=()=>location.reload(); document.body.appendChild(d); return; }
+    let idx=0; for(let i=0;i<SC.length;i++){ if(el>=SC[i].t0) idx=i; }
+    if(idx!==cur){ cur=idx; sf=0; setup(SC[idx]); }
+    sf++; force(SC[idx], sf);
+    const lead=players.reduce((a,b)=>(b&&b.x>a.x)?b:a,players[0]); cameraX += (Math.max(0,lead.x-CW*0.42)-cameraX)*0.16; cameraY=0;
+    origDraw();
+    bigCard('SCRAMBLE RACERS','a chaotic platform-racing party game',el,0.15,2.55);
+    bigCard('SCRAMBLE RACERS','▶  WISHLIST NOW ON STEAM',el,21.75,25.3);
+    SC.forEach(s=>{ if(s.label) band(s.label, el, s.t0+0.2, s.t1-0.2); });
+    SC.forEach(s=>{ const dt=el-s.t0; if(s.t0>0&&dt>=0&&dt<0.13){ ctx.save();ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=(0.13-dt)/0.13*0.6;ctx.fillStyle='#fff';ctx.fillRect(0,0,CW,CH);ctx.restore(); } });
+  };
+}
+if (new URLSearchParams(location.search).has('trailer')) {
+  const ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;background:#0b1020;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:99999;color:#eaf0ff;font:600 20px Segoe UI,sans-serif;text-align:center;gap:12px;cursor:pointer;padding:20px';
+  ov.innerHTML='<div style="font:900 44px Segoe UI, Arial Black, sans-serif;color:#ffd24d">🏁 SCRAMBLE RACERS</div><div>▶ Click to play the ~25s trailer</div><div style="color:#8fa0c0;font-size:14px;max-width:520px">Start your screen recorder first — OBS, or Windows <b>Win+G</b> → Record. It plays once, with music.</div>';
+  ov.onclick=()=>{ ov.remove(); runTrailer(); };
+  document.body.appendChild(ov);
+}
 </script>
 </body>
 </html>
