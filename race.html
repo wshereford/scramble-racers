@@ -765,15 +765,18 @@ function rebuildTrackObjects(){
       }
     });
   }
-  // a FEW minor respawn hazards (thorn bushes) scattered on the main path — hit one and you're
-  // sent back to the start of that section. Jump over them.
-  for(let n=0;n<3;n++){
+  // a few clusters of spike-critters HOVERING over the main path — an aerial hazard for the
+  // high route. They only stun + knock you back (never a respawn), and you can always run
+  // underneath on the ground, so they stay fair. Seeded RNG so every client sees the same set.
+  for(let n=0;n<4;n++){
     const tx = 700 + Math.floor(RNG()*(TRACK_LEN-1500));
+    const cw = 56 + Math.floor(RNG()*2)*27;                  // 2–3 critters wide
     let clear = true;
     for(const p of pitSpans)   if(tx>p.x-70 && tx<p.x+p.w+70) clear=false;
     for(const c of caveSpans)  if(tx>c.x-70 && tx<c.x+c.w+70) clear=false;
     for(const tn of tunnelSpans) if(tx>tn.x0-70 && tx<tn.x1+70) clear=false;
-    if(clear) triggers.push({type:'thorns', x:tx-28, y:GROUND_Y-30, w:56, h:30});
+    const ay = GROUND_Y - (104 + Math.floor(RNG()*86));      // hover ~1–2 jumps up
+    if(clear) triggers.push({type:'spikes', x:tx-cw/2, y:ay, w:cw, h:40, air:true});
   }
 }
 
@@ -873,7 +876,7 @@ function aiInput(p){
   let threat=999, deadlyNear=false;
   for(const s of solids){ if((s.kind==='block'||s.kind==='plat') && s.y<feet-6){ const d=s.x-front; if(d>-10 && d<threat) threat=d; } }
   for(const t of triggers){
-    if(t.type==='spikes'||t.type==='lava'||t.type==='thorns'){ const d=t.x-front; if(d>-t.w && d<160){ if(d<threat&&d>-t.w) threat=d; if(d<80) deadlyNear=true; } }
+    if((t.type==='spikes'&&!t.air)||t.type==='lava'){ const d=t.x-front; if(d>-t.w && d<160){ if(d<threat&&d>-t.w) threat=d; if(d<80) deadlyNear=true; } }
     else if(t.type==='saw'){ const sx=t.x0+(t.x1-t.x0)*(0.5+0.5*Math.sin(raceFrame*0.05+t.phase)); const d=sx-front; if(d>-28 && d<threat) threat=d; }   // jump the blade
   }
   for(const pit of pitSpans){ const d=pit.x-front; if(d>-pit.w && d<160){ if(d<threat&&d>-pit.w) threat=d; if(d<80) deadlyNear=true; } }
@@ -1294,8 +1297,6 @@ function updatePlayer(p, started){
         p.fx='OUCH!'; p.fxT=18; sfx(p,'spikes'); burstP(p.x+PLAYER_W/2,p.y+PLAYER_H/2,14,'#c89bff',4,22,3); break;
       } else if(t.type==='lava' && p.invuln<=0 && !fl.forcefield){
         burstP(p.x+PLAYER_W/2,p.y+PLAYER_H/2,16,'#ff8a2a',4,24,3); respawnSection(p); break;   // DEADLY
-      } else if(t.type==='thorns' && p.invuln<=0 && !fl.forcefield){
-        burstP(p.x+PLAYER_W/2,p.y+PLAYER_H/2,14,'#5a8a3a',3.5,22,3); respawnSection(p); break;   // back to section start
       } else if(t.type==='boostpad'){
         if(p.padCd<=0){ p.vx=fwd*16; p.padCd=18; p.fx='ZOOM!'; p.fxT=20; sfx(p,'boost'); burstP(p.x+PLAYER_W/2,p.y+PLAYER_H,8,'#ffd23d',3.5,16,3); }
       } else if(t.type==='cannon'){
@@ -1619,8 +1620,20 @@ function drawPlatform(b){
     ctx.fillStyle='rgba(0,0,0,.16)'; for(let px=x+18;px<x+w;px+=20) ctx.fillRect(px,y,2,h);
     ctx.fillStyle='rgba(255,255,255,.18)'; ctx.fillRect(x,y,w,4);
   }
-  // a striped hurdle to hop over (the 'block' collider is added in rebuildTrackObjects)
-  if(b.feat==='hurdle'){ const hx=Math.round(x+w*0.55-14); ctx.fillStyle='#c0392b'; ctx.fillRect(hx,y-30,28,30); ctx.fillStyle='#fff'; ctx.fillRect(hx,y-30,28,5); ctx.fillRect(hx,y-16,28,4); }
+  // a chunky cartoon warning sign to hop over (the 'block' collider is added in rebuildTrackObjects)
+  if(b.feat==='hurdle'){
+    const cx=Math.round(x+w*0.55), sway=Math.sin(raceFrame*0.05+x)*0.05;
+    ctx.fillStyle='#caa23a'; ctx.fillRect(cx-3, y-14, 6, 14);                               // post
+    ctx.fillStyle='#222';   for(let yy=y-13; yy<y-1; yy+=6){ ctx.fillRect(cx-3, yy, 6, 3); } // caution stripes on the post
+    ctx.save(); ctx.translate(cx, y-20); ctx.rotate(sway);
+    ctx.fillStyle='#1a1a1a'; roundRect(-17,-19,34,34,8); ctx.fill();                         // black border
+    ctx.fillStyle='#ffd23d'; roundRect(-14,-16,28,28,6); ctx.fill();                         // yellow sign face
+    ctx.strokeStyle='#1a1a1a'; ctx.lineWidth=2.6; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(-9,-7); ctx.lineTo(-2,-4.5); ctx.moveTo(9,-7); ctx.lineTo(2,-4.5); ctx.stroke(); // angry brows
+    ctx.fillStyle='#1a1a1a'; ctx.beginPath(); ctx.arc(-6,-0.5,2.4,0,7); ctx.arc(6,-0.5,2.4,0,7); ctx.fill();     // eyes
+    ctx.lineWidth=2.2; ctx.beginPath(); ctx.arc(0,9,4.5,1.15*Math.PI,1.85*Math.PI); ctx.stroke();               // frown
+    ctx.lineCap='butt'; ctx.restore();
+  }
 }
 // draw a slide ramp matching the EXACT surface the player rides (slideSurfaceY)
 function drawSlide(s){
@@ -1848,13 +1861,6 @@ function draw(){
       ctx.fillStyle='#caa84a'; ctx.font='13px Segoe UI Emoji'; ctx.fillText('🏖️', t.x+10, t.y+t.h+1);
     } else if(t.type==='spikes'){
       drawSpikeCritters(t);
-    } else if(t.type==='thorns'){
-      // spiky thorn bush — hit it → back to the section start
-      ctx.fillStyle='#3a6b2a'; ctx.beginPath(); ctx.ellipse(t.x+t.w/2,t.y+t.h-2,t.w/2,t.h*0.62,0,0,7); ctx.fill();
-      ctx.strokeStyle='#244a1a'; ctx.lineWidth=2.5;
-      for(let i=2;i<t.w;i+=9){ const tx=t.x+i; ctx.beginPath(); ctx.moveTo(tx,t.y+t.h-4); ctx.lineTo(tx+((i/9|0)%2?5:-5), t.y-3); ctx.stroke(); }
-      ctx.fillStyle='#7fb04a'; for(let i=6;i<t.w;i+=16){ ctx.beginPath(); ctx.arc(t.x+i,t.y+t.h-8,3,0,7); ctx.fill(); }
-      ctx.fillStyle='#ff5a5a'; for(let i=12;i<t.w-6;i+=22){ ctx.beginPath(); ctx.arc(t.x+i,t.y+t.h-13,2.6,0,7); ctx.fill(); }
     } else if(t.type==='boostpad'){
       supportLegs(t.x, t.w, t.y);
       ctx.fillStyle='#ffd23d'; roundRect(t.x,t.y,t.w,t.h,4); ctx.fill();
