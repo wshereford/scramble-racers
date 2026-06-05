@@ -1576,8 +1576,24 @@ function cloud(x,y,s){
 const STARS = [];
 for(let i=0;i<70;i++) STARS.push({x:(i*137)%CW, y:(i*89)%320, s:((i*31)%3)+1});
 // varied one-way platform styles
+// support legs from a floating platform/pad down to the ground — makes the stage read as BUILT
+// (posts + footings) instead of a bunch of slabs hovering randomly in the sky.
+function supportLegs(x, w, topY){
+  if(topY >= GROUND_Y-16) return;                 // already sitting on/near the ground
+  const lw = 7, inset = Math.min(16, w*0.16), hgt = GROUND_Y - topY;
+  ctx.fillStyle = 'rgba(86,64,44,.34)';           // faint wooden scaffolding, sits behind everything
+  ctx.fillRect(x+inset, topY+2, lw, hgt);
+  ctx.fillRect(x+w-inset-lw, topY+2, lw, hgt);
+  // cross-brace + footings so it looks like a real support, not two sticks
+  ctx.fillStyle = 'rgba(86,64,44,.22)';
+  ctx.fillRect(x+inset, topY+hgt*0.45, w-inset*2-lw, 5);
+  ctx.fillStyle = 'rgba(70,50,34,.45)';
+  ctx.fillRect(x+inset-3, GROUND_Y-5, lw+6, 5);
+  ctx.fillRect(x+w-inset-lw-3, GROUND_Y-5, lw+6, 5);
+}
 function drawPlatform(b){
   const x=b.x, y=b.y, w=b.w, h=b.h, st=b.style||'wood';
+  if(st!=='cloud') supportLegs(x, w, y);          // clouds are meant to float; everything else gets legs
   if(st==='grass'){
     ctx.fillStyle='#7a5230'; ctx.fillRect(x,y+6,w,h-6);                 // dirt body
     ctx.fillStyle='#5fb04a'; ctx.fillRect(x,y,w,8);                     // grass top
@@ -1798,6 +1814,7 @@ function draw(){
       ctx.fillStyle='#7fb04a'; for(let i=6;i<t.w;i+=16){ ctx.beginPath(); ctx.arc(t.x+i,t.y+t.h-8,3,0,7); ctx.fill(); }
       ctx.fillStyle='#ff5a5a'; for(let i=12;i<t.w-6;i+=22){ ctx.beginPath(); ctx.arc(t.x+i,t.y+t.h-13,2.6,0,7); ctx.fill(); }
     } else if(t.type==='boostpad'){
+      supportLegs(t.x, t.w, t.y);
       ctx.fillStyle='#ffd23d'; roundRect(t.x,t.y,t.w,t.h,4); ctx.fill();
       ctx.fillStyle='#a06b00'; ctx.font='bold 17px Segoe UI'; ctx.textAlign='center';
       ctx.fillText('»»»', t.x+t.w/2, t.y+t.h-3); ctx.textAlign='left';
@@ -1828,6 +1845,7 @@ function draw(){
       if(t._lit) t._lit--;
     } else if(t.type==='conveyor'){
       // moving walkway: a belt with scrolling chevrons
+      supportLegs(t.x, t.w, t.y-4);
       ctx.fillStyle='#3a3f4b'; roundRect(t.x,t.y-4,t.w,t.h+8,4); ctx.fill();
       ctx.fillStyle='#facc4a';
       const scroll=(raceFrame*2)%28;
