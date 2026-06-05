@@ -7,3 +7,6 @@ Thumbs.db
 # Local tooling (device-specific preview/launch config)
 .claude/
 server.ps1
+
+# Recorded gameplay videos (large binaries)
+*.mp4
