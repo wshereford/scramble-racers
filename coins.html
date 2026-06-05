@@ -561,25 +561,38 @@ const CAVE_W = 260, CAVE_D = 66, CAVE_STEP = 34;  // basin width / depth / step 
 const TUN_D = 150, TUN_ENTRY = 92, TUN_EXIT = 150;  // tunnel floor depth / entry gap / exit-ramp run
 
 function buildBaseLayout(){
-  // A meandering HIGH ROUTE above the ground, re-rolled each race: platforms at VARIED heights
-  // and spacings — most a running jump apart, but some across a wide "bigGap" you can't jump and
-  // have to bridge by grabbing a swing. Heights drift but climbs stay within a jump (≈164px max),
-  // and undersides stay above head height so ground runners pass underneath freely.
+  // A high-route COURSE re-rolled each race: a meandering main chain of platforms at VARIED heights,
+  // PLUS extra platforms stacked up top, linked by jumps, swings (sometimes swing→swing across a big
+  // gap) and ride-down slide chutes — so there are different ways through, not just floating platforms.
+  // Climbs stay within a jump (≈164px) and undersides clear head height, so the ground route is free.
   baseLayout = [];
   const styles=['grass','wood','net','candy','cloud'];
-  const LOW = GROUND_Y-95, HIGH = GROUND_Y-265;     // height band: LOW = just above the ground, HIGH = way up
-  let x = 520, prevY = GROUND_Y-110, si = 0;
-  while(x < TRACK_LEN-360){
-    let y, r=Math.random();
-    if(r<0.34)      y = prevY + Math.random()*80;    // step DOWN toward the ground (always easy)
-    else if(r<0.74) y = prevY - Math.random()*110;   // step UP, within a running jump
-    else            y = LOW - Math.random()*45;       // drop back down to a low platform
+  const LOW = GROUND_Y-95, HIGH = GROUND_Y-280;     // height band: LOW = just above the ground, HIGH = way up
+  // 1) lay a meandering MAIN chain, tagging the link to the next platform (jump / swing / swing→swing / slide)
+  const main=[]; let x=480, prevY=GROUND_Y-110, si=0;
+  while(x < TRACK_LEN-340){
+    let r=Math.random(), y;
+    if(r<0.38)      y = prevY + Math.random()*135;   // step DOWN (sometimes a big drop → makes slide terrain)
+    else if(r<0.74) y = prevY - Math.random()*115;   // step UP, within a running jump
+    else            y = LOW - Math.random()*55;       // reset down to a low platform
     y = Math.max(HIGH, Math.min(LOW, Math.round(y)));
-    const w = Math.round(135 + Math.random()*105);    // 135..240 wide
-    const big = Math.random() < 0.13;                 // ~13% get a WIDE gap after them → needs a swing
-    baseLayout.push({x, y, w, h:18, kind:'plat', style:styles[si%styles.length], bigGap:big});
-    prevY = y; si++;
-    x += w + (big ? Math.round(255+Math.random()*120) : Math.round(95+Math.random()*100));  // wide 255..375 vs jump 95..195
+    const w = Math.round(130 + Math.random()*95);
+    const p={x, y, w, h:18, kind:'plat', style:styles[si%styles.length]}; main.push(p); si++;
+    const roll=Math.random();
+    if(roll<0.035){ p.gap='swing2'; x += w + Math.round(360+Math.random()*120); }    // very wide → swing into swing
+    else if(roll<0.10){ p.gap='swing'; x += w + Math.round(230+Math.random()*90); }  // wide → swing across
+    else { p.gap='jump'; x += w + Math.round(95+Math.random()*100); }                // jumpable
+    prevY=y;
+  }
+  // 2) link platforms; where a jump DROPS to a notably-lower next platform, ride a slide chute down instead
+  for(let i=0;i<main.length-1;i++){ const a=main[i], b=main[i+1]; a.next=b;
+    if(a.gap==='jump' && (b.y - a.y) > 45 && Math.random()<0.66) a.gap='slide';
+  }
+  // 3) assemble: main chain + extra platforms STACKED up top (more high routes / a branch upward)
+  for(const p of main){
+    baseLayout.push(p);
+    if(p.next && Math.random()<0.27 && p.y-105>HIGH)
+      baseLayout.push({x:Math.round(p.x+p.w*0.3), y:Math.max(HIGH, p.y-(100+Math.random()*55)), w:Math.round(100+Math.random()*60), h:18, kind:'plat', style:styles[baseLayout.length%styles.length]});
   }
 }
 
@@ -630,8 +643,8 @@ function rebuildTrackObjects(){
   }
   // base platforms — each gets a feature rolled fresh per race. Purple critters + yellow warning
   // signs thin out the HIGHER the platform sits (but can still appear anywhere); bounce/spring/
-  // plain fill the rest. Swings appear ONLY at the wide "bigGap" platforms, to bridge a jump you
-  // can't make. (Hazards never spawn underground — these are all above-ground platforms.)
+  // plain fill the rest. The course CONNECTORS (swings / swing→swing / slide chutes) are emitted
+  // below per the link tagged on each platform. (Hazards never spawn underground.)
   for(const b of baseLayout){
     solids.push({x:b.x,y:b.y,w:b.w,h:b.h,kind:b.kind});
     const heightFrac = clamp((GROUND_Y-90 - b.y) / 175, 0, 1);   // 0 = low (near ground) … 1 = way up high
@@ -647,8 +660,19 @@ function rebuildTrackObjects(){
     else if(r < pH+pC+0.27){ b.feat='spring';
       triggers.push({type:'spring', x:Math.round(b.x+b.w*0.5-46), y:b.y-22, w:92, h:22}); }            // launch up + forward
     else { b.feat=null; }                                                                              // plain: coins only
-    if(b.bigGap){   // a vine swing to ride across the wide gap to the next platform
-      triggers.push({type:'swing', x:Math.round(b.x+b.w+25), y:b.y-90, w:60, h:112}); }
+    // CONNECTORS to the next main platform — the "course" links
+    if(b.gap && b.next){ const a=b, nb=b.next;
+      if(a.gap==='swing'){               // one vine swing across a wide gap
+        triggers.push({type:'swing', x:Math.round(a.x+a.w+20), y:a.y-90, w:60, h:112});
+      } else if(a.gap==='swing2'){       // swing INTO another swing across a very wide gap
+        const gs=a.x+a.w, ge=nb.x;
+        triggers.push({type:'swing', x:Math.round(gs+15), y:a.y-90, w:60, h:112});
+        triggers.push({type:'swing', x:Math.round(gs+(ge-gs)*0.5), y:Math.round(Math.min(a.y,nb.y)-72), w:60, h:112});
+      } else if(a.gap==='slide'){        // a slick chute you ride DOWN to the lower next platform
+        const x0=Math.round(a.x+a.w-8), x1=Math.round(nb.x+34);
+        if(x1-x0>40) slideRamps.push({chute:true, x:x0, w:x1-x0, topY:a.y, endY:nb.y, h:0});
+      }
+    }
   }
   // hazard objects come from each section's chosen theme
   for(let i=0;i<NUM_SECTIONS;i++){
@@ -806,7 +830,12 @@ function respawnSection(p){
 }
 // height of a slide ramp's ridable surface at world-x (short ramp up the front, long chute down)
 function slideSurfaceY(s, x){
-  const x0=s.x, x1=s.x+s.w, xc=x0+s.w*0.30, h=s.h;
+  const x0=s.x, x1=s.x+s.w;
+  if(s.chute){                                       // platform→platform ride-down chute (topY high → endY low)
+    if(x<=x0) return s.topY; if(x>=x1) return s.endY;
+    const t=(x-x0)/(x1-x0); return s.topY + (s.endY-s.topY)*(t*t);   // gentle at the top, steeper toward the bottom
+  }
+  const xc=x0+s.w*0.30, h=s.h;
   if(x<=x0 || x>=x1) return GROUND_Y;
   let f;
   if(x<xc){ const t=(x-x0)/(xc-x0); f=t*t; }      // ramp up (ease-in)
@@ -1153,8 +1182,8 @@ function updatePlayer(p, started){
   // --- SLIDE RIDE: snap to the ramp surface, accelerate down the chute, exit fast & LOW ---
   {
     const cxp = p.x+PLAYER_W/2;
-    let ramp=null;
-    for(const s of slideRamps){ if(cxp>s.x && cxp<s.x+s.w){ ramp=s; break; } }
+    let ramp=null, bestD=1e9;   // pick the ramp whose surface is nearest the feet (handles a high chute over a ground slide)
+    for(const s of slideRamps){ if(cxp>s.x && cxp<s.x+s.w){ const d=Math.abs((p.y+PLAYER_H)-slideSurfaceY(s,cxp)); if(d<bestD){ bestD=d; ramp=s; } } }
     if(ramp && !p.finished){
       const surfY = slideSurfaceY(ramp, cxp);
       const feet = p.y+PLAYER_H, riding = p.onSlide===ramp;
@@ -1530,7 +1559,15 @@ function drawPlatform(b){
 }
 // draw a slide ramp matching the EXACT surface the player rides (slideSurfaceY)
 function drawSlide(s){
-  const x0=s.x, x1=s.x+s.w, xc=x0+s.w*0.30, peakY=GROUND_Y-s.h;
+  const x0=s.x, x1=s.x+s.w;
+  if(s.chute){   // platform→platform ride-down chute
+    ctx.lineCap='round';
+    for(const fr of [0.3,0.6,0.88]){ const xx=x0+(x1-x0)*fr, sy=slideSurfaceY(s,xx); ctx.strokeStyle='#3a8fb0'; ctx.lineWidth=4; ctx.beginPath(); ctx.moveTo(xx,sy); ctx.lineTo(xx,sy+24); ctx.stroke(); }
+    ctx.strokeStyle='#5fd0ff'; ctx.lineWidth=15; ctx.beginPath(); ctx.moveTo(x0,slideSurfaceY(s,x0)); for(let x=x0;x<=x1;x+=6) ctx.lineTo(x,slideSurfaceY(s,x)); ctx.stroke();
+    ctx.strokeStyle='rgba(255,255,255,.75)'; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(x0,slideSurfaceY(s,x0)-4); for(let x=x0;x<=x1;x+=6) ctx.lineTo(x,slideSurfaceY(s,x)-4); ctx.stroke();
+    ctx.lineCap='butt'; return;
+  }
+  const xc=x0+s.w*0.30, peakY=GROUND_Y-s.h;
   ctx.lineCap='round';
   // support legs
   ctx.strokeStyle='#6b4ea8'; ctx.lineWidth=6;
