@@ -147,13 +147,16 @@ var firebaseConfig = {
 
   <!-- SHOP -->
   <div id="shopPanel" class="panel">
-    <h2>🛒 Shop <span id="shopCoins" style="font-size:18px;color:#ffd24d;margin-left:10px;"></span></h2>
-    <p class="sub" id="shopSub">Spend your coins on upgrades. Stat boosts stack — buy as many as you can afford. Click DONE when you're ready to race.</p>
+    <h2>🛒 Shop <span id="shopCoins" style="font-size:18px;color:#ffd24d;margin-left:10px;"></span>
+        <span id="shopTimer" style="font-size:16px;color:#7fd1ff;margin-left:14px;">⏱ 30s</span></h2>
+    <p class="sub" id="shopSub">Spend your coins on upgrades — stat boosts stack. <b>Ready up</b> when you're done; the next race starts when everyone's ready or the timer runs out.</p>
+    <div class="scorebox" style="margin-bottom:10px"><table id="shopBoard"></table></div>
     <div id="shopItems"></div>
     <div id="shopBuild" style="font-size:12px;color:#9fb0c8;margin-top:6px"></div>
     <div class="center">
       <button class="btn alt" id="shopRefresh">🔄 REFRESH (💰<span id="shopRefreshCost">5</span>)</button>
-      <button class="btn" id="shopDone">DONE — RACE! →</button>
+      <button class="btn" id="shopDone">✅ READY UP</button>
+      <div id="shopReadyInfo" style="margin-top:8px;color:#bfe49a;font-size:13px"></div>
     </div>
   </div>
 
@@ -1131,9 +1134,9 @@ function updatePlayer(p, started){
       // release at the forward peak, on jump, or timeout → leave with tangential velocity
       if((p.swAng*fwd>0.55 && p.swVel*fwd<=0.01) || inp.jump || p.swingT<=0){
         const w=p.swVel, L=p.swLen, th=p.swAng;
-        p.vx = L*w*Math.cos(th) + fwd*3;
+        p.vx = (L*w*Math.cos(th) + fwd*3) * st.speed;   // fling off faster if you bought speed
         p.vy = -L*w*Math.sin(th) - 5;             // pop up off the rope
-        if(Math.abs(p.vx)<6) p.vx = fwd*9;
+        if(Math.abs(p.vx)<6*st.speed) p.vx = fwd*9*st.speed;
         p.swingT=0; p.ladderCd=28;
       }
       if(raceFrame%2===0) trailP(p.x+PLAYER_W/2, p.y+10, '#bfe49a', 2.2);
@@ -1142,11 +1145,11 @@ function updatePlayer(p, started){
     // forward off the perch (the reward), then briefly ignores the ladder so you don't re-grab.
     else if(ladder && inp.jumpHeld){
       if(p.y <= ladder.y + 4){
-        // reached the perch top → fling forward & up
-        p.vy = -12; p.vx = (p.facing||1)*14; p.climbing=false; p.ladderCd=45; p.fx='🚀'; p.fxT=18;
+        // reached the perch top → fling forward & up (scaled by your run speed so boosts matter here too)
+        p.vy = -12; p.vx = (p.facing||1)*14*st.speed; p.climbing=false; p.ladderCd=45; p.fx='🚀'; p.fxT=18;
       } else {
         p.climbing = true;
-        p.vy = -3.6; p.grounded=false;
+        p.vy = -3.6*Math.min(st.speed,2.2); p.grounded=false;   // climb faster if you bought speed
         const lc = ladder.x + ladder.w/2;
         p.vx = clamp((lc - (p.x+PLAYER_W/2))*0.2, -2, 2);
       }
@@ -2116,12 +2119,12 @@ function drawHUD(){
     ctx.fillText(`⏱ ${Math.max(0,left)}s — FINISH!`, CW/2, 28); ctx.textAlign='left';
   }
 
-  // your coin bank (single-player only — multiplayer has no shop yet)
-  if(!MP.on){ const meC=localP();
+  // your coin bank + coins grabbed this race (shown in both single-player and multiplayer)
+  { const meC=localP(); if(meC){
     ctx.fillStyle='rgba(10,16,30,.72)'; roundRect(20,62,210,28,6); ctx.fill();
     ctx.fillStyle='#ffd24d'; ctx.font='bold 16px Segoe UI'; ctx.fillText(`💰 ${meC.coins}`, 30, 81);
-    ctx.fillStyle='#bfe49a'; ctx.font='12px Segoe UI'; ctx.fillText(`+${meC.raceCoins} this race`, 96, 81);
-  }
+    ctx.fillStyle='#bfe49a'; ctx.font='12px Segoe UI'; ctx.fillText(`+${meC.raceCoins||0} this race`, 96, 81);
+  } }
 
   // scoreboard (top-right) — MP: live race position; SP: points + coins
   const sorted = MP.on ? [...players].sort((a,b)=>(b.x)-(a.x)) : [...players].sort((a,b)=>b.points-a.points);
@@ -2238,13 +2241,13 @@ let shopOfferList = [], shopRefreshCost = 5;
 function showShop(){
   if(!MP.on){ for(let i=1;i<4;i++) cpuShop(players[i]); }             // the CPUs spend their coins too
   setTheme(Math.floor(Math.random()*NUM_SECTIONS), 'playground');  // re-roll a section's playground features so the track keeps changing
-  shopOfferList = shopOffer(players[0]);
+  shopOfferList = shopOffer(localP());
   shopRefreshCost = 5;
   renderShop();
   setState('shop');
 }
 $('shopRefresh').onclick = ()=>{
-  const me = players[0];
+  const me = localP();
   if(me.coins < shopRefreshCost) return;
   initAudio(); resumeAudio(); SFX.coinbuy();
   me.coins -= shopRefreshCost;
@@ -2253,7 +2256,7 @@ $('shopRefresh').onclick = ()=>{
   renderShop();
 };
 function renderShop(){
-  const me = players[0];
+  const me = localP();
   $('shopCoins').textContent = `💰 ${me.coins}`;
   const wrap = $('shopItems'); wrap.innerHTML='';
   const section = (title, items)=>{
@@ -2288,7 +2291,13 @@ function renderShop(){
   $('shopRefreshCost').textContent = shopRefreshCost;
   $('shopRefresh').disabled = me.coins < shopRefreshCost;
 }
-$('shopDone').onclick = ()=>{ SFX.select(); if(MP.on){ mpShopDone(); } else { raceNum++; startRace(); } };
+$('shopDone').onclick = ()=>{ SFX.select();
+  if(MP.on){
+    MP.ref.child('players/'+MP.myId+'/shopReady').set(true);   // "done shopping"
+    $('shopDone').textContent = '✅ Ready — waiting…'; $('shopDone').disabled = true;
+    renderShopReadyInfo(); maybeAdvanceShop();                 // maybe everyone's ready now
+  } else { raceNum++; startRace(); }
+};
 
 // ---- FINAL ----
 function showFinal(){
@@ -2346,7 +2355,8 @@ window.addEventListener('keyup',e=>{ keys[e.key]=false; });
 // with real physics and broadcast its position ~20×/sec; other racers are drawn by
 // playing back their broadcasts. Casual client-authoritative netcode — perfect for friends.
 const MP = { on:false, db:null, myId:null, mySlot:0, isHost:false, hostId:null, code:null, ref:null,
-  order:[], data:{}, remote:{}, seed:1, lastSend:0, wfxReady:false, cg:{} };
+  order:[], data:{}, remote:{}, seed:1, lastSend:0, wfxReady:false, cg:{},
+  shopTimer:null, shopDeadline:0, shopAdvanced:false };
 // mark coins that other racers have already grabbed (synced via the room's `cg` node), so a coin
 // vanishes for EVERYONE the instant any one player takes it. Namespaced by raceNum so old races don't bleed.
 function applyCoinsGot(){
@@ -2384,7 +2394,7 @@ function mpEnterRoom(code, host){
   if(host) MP.ref.child('host').set(MP.myId);
   MP.ref.child('host').on('value', s=>{ MP.hostId=s.val(); MP.isHost=(s.val()===MP.myId); renderLobby(); });
   MP.ref.child('players').on('value', s=> onPlayers(s.val()||{}) );
-  MP.ref.child('state').on('value', s=> { if(s.val()==='race') mpStartRace(); else if(s.val()==='lobby' && state==='lobby') setState('lobby'); else if(s.val()==='done'&&state==='race') mpResults(); else if(s.val()==='shop'&&!MP.isHost) { showShop(); } });
+  MP.ref.child('state').on('value', s=> { if(s.val()==='race') mpStartRace(); else if(s.val()==='lobby' && state==='lobby') setState('lobby'); else if(s.val()==='done'&&state==='race') mpResults(); });
   MP.ref.child('seed').on('value', s=>{ if(s.val()) MP.seed=s.val(); });
   // which race of the series we're on — host owns it; everyone mirrors it so scoring + series-end agree
   MP.ref.child('raceNum').on('value', s=>{ if(s.val()!=null) raceNum=s.val(); });
@@ -2403,6 +2413,7 @@ function onPlayers(data){
   MP.order = Object.keys(data).sort((a,b)=>(data[a].t||0)-(data[b].t||0)).slice(0,4);
   MP.mySlot = Math.max(0, MP.order.indexOf(MP.myId));
   renderLobby();
+  if(state==='shop'){ renderShopReadyInfo(); maybeAdvanceShop(); }   // react when someone readies up
 }
 function renderLobby(){
   const list=$('playerList'); if(!list) return; list.innerHTML='';
@@ -2423,13 +2434,16 @@ function localP(){ return MP.on ? (players[MP.mySlot]||players[0]) : players[0];
 
 // build the shared track + the players array, and start a synced race
 function mpStartRace(){
+  clearInterval(MP.shopTimer); MP.shopTimer=null;   // leaving the shop phase
+  // clear my shop-readiness for the WHOLE race, so leftover true flags can't make the host skip the next shop
+  try{ MP.ref.child('players/'+MP.myId+'/shopReady').set(false); }catch(e){}
   // Cancel onDisconnect so brief reconnects during race don't remove player from lobby
   try{ MP.ref.child('players/'+MP.myId).onDisconnect().cancel(); }catch(e){}
   // Ensure we're in the order; if not, MP.order may be stale - use last known order
   if(MP.order.length===0 || !MP.order.includes(MP.myId)){ MP.order = Object.keys(MP.data||{}).sort((a,b)=>((MP.data[a]||{}).t||0)-((MP.data[b]||{}).t||0)).slice(0,4); }
   RNG = mulberry32(MP.seed);
   sections = new Array(NUM_SECTIONS); for(let i=0;i<NUM_SECTIONS;i++) setTheme(i,'playground');
-  players = MP.order.map((id,i)=>{ const p=newPlayer(i); p.netId=id; p.name=(MP.data[id]&&MP.data[id].name)||('P'+(i+1)); p.color=COLORS[i%4]; const prev=players.find(p2=>p2.netId===id); p.build=prev?prev.build:freshBuild(); p.coins=prev?prev.coins:0; p.bought=prev?prev.bought:{}; p.coinMag=prev?(prev.coinMag||0):0; p.owned=prev?prev.owned:new Set(); p.bonus=prev?{speed:prev.bonus.speed||1,jump:prev.bonus.jump||1,gravity:prev.bonus.gravity||1}:{speed:1,jump:1,gravity:1}; return p; });
+  players = MP.order.map((id,i)=>{ const p=newPlayer(i); p.netId=id; p.name=(MP.data[id]&&MP.data[id].name)||('P'+(i+1)); p.color=COLORS[i%4]; const prev=players.find(p2=>p2.netId===id); p.build=prev?prev.build:freshBuild(); p.coins=prev?prev.coins:0; p.points=prev?(prev.points||0):0; p.bought=prev?prev.bought:{}; p.coinMag=prev?(prev.coinMag||0):0; p.owned=prev?prev.owned:new Set(); p.bonus=prev?{speed:prev.bonus.speed||1,jump:prev.bonus.jump||1,gravity:prev.bonus.gravity||1}:{speed:1,jump:1,gravity:1}; return p; });
   lastFinishOrder=[];
   RNG = mulberry32(MP.seed); rebuildTrackObjects(); buildCoins(); RNG = Math.random;
   players.forEach((p,i)=>{ p.stats=computeStats(p.build);
@@ -2456,7 +2470,7 @@ function mpBroadcast(){
   const p=players[MP.mySlot]; if(!p) return;
   MP.ref.child('live/'+MP.myId).set({ x:Math.round(p.x), y:Math.round(p.y), vx:Math.round(p.vx*10)/10, vy:Math.round(p.vy*10)/10, f:p.facing||1, g:p.grounded?1:0, st:p.stun|0, fx:p.fx||'', fxT:p.fxT|0, fin:p.finished?1:0, rc:Math.round(p.raceCoins||0) });
 }
-// MP results screen — awards coins + shows shop between races (4-race series)
+// MP race wrap-up — award points/coins, then go STRAIGHT to the shop (or final standings on race 4).
 function mpResults(){
   if(state!=='race') return;
   stopMusic();   // covers the case where the race ended via another client's 'done' signal (not our own raceTick)
@@ -2468,14 +2482,51 @@ function mpResults(){
     p.gained = ptsTable[i]*mult; p.points += p.gained;
     p.coinGained = COIN_PAYOUT[i]; p.coins += p.coinGained;
   });
-  showResults(mult);
-  if(raceNum < RACES-1){
-    $('resultNext').textContent = 'TO THE SHOP 🛒 →';
-    $('resultNext').onclick = ()=>{ SFX.select(); if(MP.isHost) MP.ref.update({state:'shop'}); showShop(); };
-  } else {
-    $('resultNext').textContent = 'SEE FINAL STANDINGS →';
-    $('resultNext').onclick = ()=>{ SFX.select(); showFinal(); };
-  }
+  if(raceNum < RACES-1) enterShop();   // 30s shop with live standings + ready-up
+  else showFinal();
+}
+// open the between-races shop: live standings, your upgrades, a 30s timer, and ready-up.
+function enterShop(){
+  MP.shopAdvanced = false;
+  MP.shopDeadline = Date.now() + 30000;
+  if(MP.on && MP.ref) MP.ref.child('players/'+MP.myId+'/shopReady').set(false);   // fresh readiness each shop
+  $('shopDone').textContent = '✅ READY UP'; $('shopDone').disabled = false;
+  showShop();              // builds the offer for localP() + setState('shop')
+  renderShopBoard();
+  renderShopReadyInfo();
+  startShopTimer();
+}
+function renderShopBoard(){
+  const tbl = $('shopBoard'); if(!tbl) return; tbl.innerHTML='';
+  [...players].sort((a,b)=>b.points-a.points).forEach((p,i)=>{
+    const tr=document.createElement('tr'); if(isMe(p)) tr.className='you';
+    tr.innerHTML=`<td>${['🥇','🥈','🥉','4th'][i]||(i+1)+'th'}</td>`+
+      `<td><span class="swatch" style="background:${p.color}"></span>${p.name}</td>`+
+      `<td><b>${p.points}</b> pts</td><td style="color:#caa84a">💰${p.coins}</td>`;
+    tbl.appendChild(tr);
+  });
+}
+function renderShopReadyInfo(){
+  if(!MP.on){ $('shopReadyInfo').textContent=''; return; }
+  const ids = MP.order.length?MP.order:Object.keys(MP.data||{});
+  const ready = ids.filter(id=>MP.data[id]&&MP.data[id].shopReady).length;
+  $('shopReadyInfo').textContent = `${ready}/${ids.length} ready — next race starts when everyone's ready or the timer ends`;
+}
+function startShopTimer(){
+  clearInterval(MP.shopTimer);
+  MP.shopTimer = setInterval(()=>{
+    if(state!=='shop'){ clearInterval(MP.shopTimer); MP.shopTimer=null; return; }
+    const left = Math.max(0, Math.ceil((MP.shopDeadline - Date.now())/1000));
+    $('shopTimer').textContent = '⏱ '+left+'s';
+    maybeAdvanceShop();
+  }, 250);
+}
+// host decides when to start the next race: everyone readied up, or the 30s ran out.
+function maybeAdvanceShop(){
+  if(!MP.on || !MP.isHost || state!=='shop' || MP.shopAdvanced) return;
+  const ids = MP.order.length?MP.order:Object.keys(MP.data||{});
+  const allReady = ids.length>0 && ids.every(id=> MP.data[id] && MP.data[id].shopReady);
+  if(allReady || Date.now() >= MP.shopDeadline){ MP.shopAdvanced = true; clearInterval(MP.shopTimer); MP.shopTimer=null; mpShopDone(); }
 }
 
 // lobby button wiring
