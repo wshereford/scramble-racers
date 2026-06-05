@@ -674,12 +674,24 @@ function rebuildTrackObjects(){
     const steps=7, sw=TUN_EXIT/steps;
     for(let k=0;k<steps;k++){ const sy=tn.fy-(k+1)*(TUN_D/steps); solids.push({x:tn.bx1+k*sw, y:sy, w:sw+1, h:CH}); }  // exit ramp up
   }
-  // base platforms + their per-platform features (a hurdle to jump, a bounce/spring up to the next tier)
+  // base platforms — RE-ROLL each one's feature every race so the high route never feels samey:
+  // a warning sign to hop, a bounce/spring up a tier, a swing to ride across the gap, a perched
+  // spike-critter to dodge, or just plain (coins only). Seeded RNG so MP clients agree; stored on
+  // b.feat so drawPlatform matches.
   for(const b of baseLayout){
     solids.push({x:b.x,y:b.y,w:b.w,h:b.h,kind:b.kind});
-    if(b.feat==='hurdle')      solids.push({x:Math.round(b.x+b.w*0.55-14), y:b.y-30, w:28, h:30, kind:'block'});  // h>step so it must be jumped
-    else if(b.feat==='bounce') triggers.push({type:'bounce', x:Math.round(b.x+b.w*0.5-40), y:b.y-12, w:80, h:12});
-    else if(b.feat==='spring') triggers.push({type:'spring', x:Math.round(b.x+b.w*0.5-46), y:b.y-22, w:92, h:22});
+    const roll = RNG();
+    if(roll<0.16){ b.feat='hurdle';
+      solids.push({x:Math.round(b.x+b.w*0.55-14), y:b.y-30, w:28, h:30, kind:'block'}); }          // sign to jump
+    else if(roll<0.30){ b.feat='bounce';
+      triggers.push({type:'bounce', x:Math.round(b.x+b.w*0.5-40), y:b.y-12, w:80, h:12}); }         // pad up a tier
+    else if(roll<0.42){ b.feat='spring';
+      triggers.push({type:'spring', x:Math.round(b.x+b.w*0.5-46), y:b.y-22, w:92, h:22}); }          // launch up + forward
+    else if(roll<0.56){ b.feat='critter';
+      triggers.push({type:'spikes', x:Math.round(b.x+b.w*0.5-28), y:b.y-40, w:56, h:40}); }          // perched knockback critter (hop it)
+    else if(roll<0.70){ b.feat='swing';
+      triggers.push({type:'swing', x:Math.round(b.x+b.w-40), y:b.y-90, w:60, h:112}); }              // swing off the end → ride across
+    else { b.feat=null; }                                                                            // plain: coins only
   }
   // hazard objects come from each section's chosen theme
   for(let i=0;i<NUM_SECTIONS;i++){
@@ -764,19 +776,6 @@ function rebuildTrackObjects(){
         triggers.push({type:'ladder', x:lx, y:perchY, w:32, h:GROUND_Y-perchY});
       }
     });
-  }
-  // a few clusters of spike-critters HOVERING over the main path — an aerial hazard for the
-  // high route. They only stun + knock you back (never a respawn), and you can always run
-  // underneath on the ground, so they stay fair. Seeded RNG so every client sees the same set.
-  for(let n=0;n<4;n++){
-    const tx = 700 + Math.floor(RNG()*(TRACK_LEN-1500));
-    const cw = 56 + Math.floor(RNG()*2)*27;                  // 2–3 critters wide
-    let clear = true;
-    for(const p of pitSpans)   if(tx>p.x-70 && tx<p.x+p.w+70) clear=false;
-    for(const c of caveSpans)  if(tx>c.x-70 && tx<c.x+c.w+70) clear=false;
-    for(const tn of tunnelSpans) if(tx>tn.x0-70 && tx<tn.x1+70) clear=false;
-    const ay = GROUND_Y - (104 + Math.floor(RNG()*86));      // hover ~1–2 jumps up
-    if(clear) triggers.push({type:'spikes', x:tx-cw/2, y:ay, w:cw, h:40, air:true});
   }
 }
 
@@ -876,7 +875,7 @@ function aiInput(p){
   let threat=999, deadlyNear=false;
   for(const s of solids){ if((s.kind==='block'||s.kind==='plat') && s.y<feet-6){ const d=s.x-front; if(d>-10 && d<threat) threat=d; } }
   for(const t of triggers){
-    if((t.type==='spikes'&&!t.air)||t.type==='lava'){ const d=t.x-front; if(d>-t.w && d<160){ if(d<threat&&d>-t.w) threat=d; if(d<80) deadlyNear=true; } }
+    if((t.type==='spikes'&&t.y>GROUND_Y-80)||t.type==='lava'){ const d=t.x-front; if(d>-t.w && d<160){ if(d<threat&&d>-t.w) threat=d; if(d<80) deadlyNear=true; } }  // only ground-level critters threaten the (ground-running) CPUs
     else if(t.type==='saw'){ const sx=t.x0+(t.x1-t.x0)*(0.5+0.5*Math.sin(raceFrame*0.05+t.phase)); const d=sx-front; if(d>-28 && d<threat) threat=d; }   // jump the blade
   }
   for(const pit of pitSpans){ const d=pit.x-front; if(d>-pit.w && d<160){ if(d<threat&&d>-pit.w) threat=d; if(d<80) deadlyNear=true; } }
@@ -2102,8 +2101,6 @@ function drawPlayer(p){
   const w = PLAYER_W / Math.sqrt(stretch), h = PLAYER_H * stretch;
   const dir = p.facing>=0?1:-1;
 
-  // ground shadow — only near the surface (not when underground in the tunnel)
-  if(!air && (p.y+PLAYER_H) < GROUND_Y+45){ ctx.fillStyle='rgba(0,0,0,.18)'; ctx.beginPath(); ctx.ellipse(p.x+PLAYER_W/2, GROUND_Y-2, 16, 5, 0, 0, 7); ctx.fill(); }
   // dirt spray while burrowing
   if(p.drill>0){
     ctx.fillStyle='#6e4a2c';
