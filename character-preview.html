@@ -69,8 +69,6 @@ function drawRacer(p, air, w, h, dir){
 
   ctx.fillStyle=p.color; roundRect(-bw/2, bodyTop, bw, bh, r); ctx.fill();
   ctx.save(); roundRect(-bw/2, bodyTop, bw, bh, r); ctx.clip();
-  ctx.fillStyle='rgba(0,0,0,.16)';     ctx.beginPath(); ctx.ellipse(-dir*bw*0.5, bodyTop+bh*0.55, bw*0.55, bh*0.72, 0,0,7); ctx.fill();
-  ctx.fillStyle='rgba(0,0,0,.10)';     ctx.beginPath(); ctx.ellipse(0, bodyBot, bw*0.6, bh*0.18, 0,0,7); ctx.fill();
   ctx.fillStyle='rgba(255,255,255,.30)'; ctx.beginPath(); ctx.ellipse(dir*bw*0.16, bodyTop+bh*0.22, bw*0.30, bh*0.18, -0.3,0,7); ctx.fill();
   ctx.restore();
   ctx.strokeStyle='rgba(0,0,0,.18)'; ctx.lineWidth=1.5; roundRect(-bw/2, bodyTop, bw, bh, r); ctx.stroke();
