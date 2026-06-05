@@ -2341,7 +2341,9 @@ function mpStartRace(){
   RNG = mulberry32(MP.seed); rebuildTrackObjects(); buildCoins(); RNG = Math.random;
   players.forEach((p,i)=>{ p.stats=computeStats(p.build); p.x=60+i*8; p.y=GROUND_Y-PLAYER_H; p.vx=0; p.vy=0; p.grounded=true; p.facing=1; p.finished=false; p.place=0; p.speedJitter=1.0; });
   particles=[]; dropped=[]; shots=[];
-  raceFrame=0; countdown=180; started=false; cameraX=0; cameraY=0; lastCountShown=-1; firstFinishFrame=-1;
+  raceFrame=0; MP.lastSend=0; countdown=180; started=false; cameraX=0; cameraY=0; lastCountShown=-1; firstFinishFrame=-1;
+  // drop stale race-1 finish positions so remote racers don't render frozen at the old finish line
+  MP.remote={};
   setState('race'); startMusic();
 }
 // play back a remote racer from its latest broadcast (smoothed)
