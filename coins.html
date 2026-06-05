@@ -1044,9 +1044,11 @@ function updatePlayer(p, started){
       // release at the forward peak, on jump, or timeout → leave with tangential velocity
       if((p.swAng*fwd>0.55 && p.swVel*fwd<=0.01) || inp.jump || p.swingT<=0){
         const w=p.swVel, L=p.swLen, th=p.swAng;
-        p.vx = L*w*Math.cos(th) + fwd*3;
+        let vxOut = (L*w*Math.cos(th) + fwd*3) * st.speed;   // fling off faster if you bought speed
+        const minV = (p.swEntry||6) * 0.98;                  // never leave the swing slower than you arrived
+        if(Math.abs(vxOut) < minV) vxOut = fwd*minV;
+        p.vx = vxOut;
         p.vy = -L*w*Math.sin(th) - 5;             // pop up off the rope
-        if(Math.abs(p.vx)<6) p.vx = fwd*9;
         p.swingT=0; p.ladderCd=28;
       }
       if(raceFrame%2===0) trailP(p.x+PLAYER_W/2, p.y+10, '#bfe49a', 2.2);
@@ -1055,11 +1057,11 @@ function updatePlayer(p, started){
     // forward off the perch (the reward), then briefly ignores the ladder so you don't re-grab.
     else if(ladder && inp.jumpHeld){
       if(p.y <= ladder.y + 4){
-        // reached the perch top → fling forward & up
-        p.vy = -12; p.vx = (p.facing||1)*14; p.climbing=false; p.ladderCd=45; p.fx='🚀'; p.fxT=18;
+        // reached the perch top → fling forward & up (scaled by your run speed so boosts matter here too)
+        p.vy = -12; p.vx = (p.facing||1)*14*st.speed; p.climbing=false; p.ladderCd=45; p.fx='🚀'; p.fxT=18;
       } else {
         p.climbing = true;
-        p.vy = -3.6; p.grounded=false;
+        p.vy = -3.6*Math.min(st.speed,2.2); p.grounded=false;   // climb faster if you bought speed
         const lc = ladder.x + ladder.w/2;
         p.vx = clamp((lc - (p.x+PLAYER_W/2))*0.2, -2, 2);
       }
@@ -1146,7 +1148,10 @@ function updatePlayer(p, started){
     for(const s of slideRamps){ if(cxp>s.x && cxp<s.x+s.w){ ramp=s; break; } }
     if(ramp && !p.finished){
       const surfY = slideSurfaceY(ramp, cxp);
-      if((p.y+PLAYER_H) >= surfY-10 && (p.y+PLAYER_H) < surfY+55 && p.vy>=-2){   // on the chute (not over it, not underground below it)
+      const feet = p.y+PLAYER_H, riding = p.onSlide===ramp;
+      // catch the chute from above, OR — if already riding — stay glued even when you're going so fast the
+      // chute drops away beneath you between frames (so speed never throws you off the slide).
+      if((feet >= surfY-10 && feet < surfY+55 && p.vy>=-2) || (riding && feet < surfY+80)){
         const xc = ramp.x + ramp.w*0.30;
         p.y = surfY - PLAYER_H; p.vy = 0; p.grounded = true; p.onSlide = ramp;
         const fwd = p.facing||1, maxSpd = BASE_SPEED*st.speed*p.speedJitter;
@@ -1213,8 +1218,10 @@ function updatePlayer(p, started){
         if(p.swingT<=0 && p.ladderCd<=0){
           const f=p.facing||1;
           p.swPivX = t.x+t.w/2; p.swPivY = t.y-22; p.swLen = Math.max(70, (t.y+t.h-12)-(t.y-22));
-          p.swAng = -0.7*f; p.swVel = 0.05*f;
-          p.swingT=80; p.fx='SWING!'; p.fxT=18; sfx(p,'spring'); burstP(t.x+t.w/2,t.y+t.h-10,6,'#bfe49a',2.5,14,2.5);
+          p.swAng = -0.55*f;
+          p.swEntry = Math.max(Math.abs(p.vx), BASE_SPEED*st.speed*p.speedJitter);   // remember how fast you came in
+          p.swVel = f * Math.min(0.05 + p.swEntry/(p.swLen*2.5), 0.085);             // carry that momentum into the swing (capped so it stays a swing, not a full loop)
+          p.swingT=60; p.fx='SWING!'; p.fxT=18; sfx(p,'spring'); burstP(t.x+t.w/2,t.y+t.h-10,6,'#bfe49a',2.5,14,2.5);
         }
       } else if(t.type==='conveyor'){
         // moving walkway: shoves you along the floor while you're on it
@@ -1457,9 +1464,24 @@ function cloud(x,y,s){
 // a few stars for the Sky theme
 const STARS = [];
 for(let i=0;i<70;i++) STARS.push({x:(i*137)%CW, y:(i*89)%320, s:((i*31)%3)+1});
+// support legs from a floating platform/pad down to the ground — makes the stage read as BUILT
+// (posts + footings) instead of a bunch of slabs hovering randomly in the sky.
+function supportLegs(x, w, topY){
+  if(topY >= GROUND_Y-16) return;                 // already sitting on/near the ground
+  const lw = 7, inset = Math.min(16, w*0.16), hgt = GROUND_Y - topY;
+  ctx.fillStyle = 'rgba(86,64,44,.34)';           // faint wooden scaffolding, sits behind everything
+  ctx.fillRect(x+inset, topY+2, lw, hgt);
+  ctx.fillRect(x+w-inset-lw, topY+2, lw, hgt);
+  ctx.fillStyle = 'rgba(86,64,44,.22)';
+  ctx.fillRect(x+inset, topY+hgt*0.45, w-inset*2-lw, 5);
+  ctx.fillStyle = 'rgba(70,50,34,.45)';
+  ctx.fillRect(x+inset-3, GROUND_Y-5, lw+6, 5);
+  ctx.fillRect(x+w-inset-lw-3, GROUND_Y-5, lw+6, 5);
+}
 // varied one-way platform styles
 function drawPlatform(b){
   const x=b.x, y=b.y, w=b.w, h=b.h, st=b.style||'wood';
+  if(st!=='cloud') supportLegs(x, w, y);          // clouds are meant to float; everything else gets legs
   if(st==='grass'){
     ctx.fillStyle='#7a5230'; ctx.fillRect(x,y+6,w,h-6);                 // dirt body
     ctx.fillStyle='#5fb04a'; ctx.fillRect(x,y,w,8);                     // grass top
@@ -1513,6 +1535,24 @@ function drawSlide(s){
 }
 // Each section paints its own themed backdrop (sky + props) in world space, clipped to
 // its column. The viewport spans at most two sections, so you see a clean transition.
+// fun playground dressing for a section: little trees, ground bushes, flowers + floating balloons.
+// All positions are derived from sx so it's stable frame-to-frame (no flicker).
+function playgroundScenery(sx){
+  const gy=GROUND_Y;
+  for(let tk=0; tk<2; tk++){ const tx=sx+170+tk*540;
+    ctx.fillStyle='#7a5230'; ctx.fillRect(tx-5, gy-46, 10, 46);
+    ctx.fillStyle='#4e9a3c'; ctx.beginPath(); ctx.arc(tx,gy-58,25,0,7); ctx.arc(tx-19,gy-48,17,0,7); ctx.arc(tx+19,gy-48,17,0,7); ctx.fill();
+    ctx.fillStyle='#5fb04a'; ctx.beginPath(); ctx.arc(tx-6,gy-64,13,0,7); ctx.arc(tx+8,gy-60,11,0,7); ctx.fill();
+  }
+  for(let bx=sx+60; bx<sx+SEC_W; bx+=190){
+    ctx.fillStyle='#4e9a3c'; ctx.beginPath(); ctx.arc(bx,gy,15,Math.PI,0); ctx.arc(bx+17,gy,20,Math.PI,0); ctx.arc(bx+36,gy,14,Math.PI,0); ctx.closePath(); ctx.fill();
+    ctx.fillStyle='#62c155'; ctx.beginPath(); ctx.arc(bx+15,gy-7,9,Math.PI,0); ctx.fill();
+  }
+  ['#ff6fae','#ffd23d','#ff8a3d','#ffffff'].forEach((col,k)=>{ ctx.fillStyle=col;
+    for(let fx=sx+95+k*55; fx<sx+SEC_W; fx+=230){ ctx.beginPath(); ctx.arc(fx, gy-4, 2.6,0,7); ctx.fill(); } });
+  ['#ff5fb0','#ffd23d','#5fd0ff'].forEach((col,k)=>{ ctx.fillStyle=col; ctx.beginPath(); ctx.arc(sx+SEC_W*0.4+k*44,150+(k%2)*34,13,0,7); ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,.4)'; ctx.beginPath(); ctx.moveTo(sx+SEC_W*0.4+k*44,163+(k%2)*34); ctx.lineTo(sx+SEC_W*0.4+k*44,200); ctx.stroke(); });
+}
 function drawSectionBackdrop(i){
   const th=secTheme(i), sx=i*SEC_W;
   const g=ctx.createLinearGradient(0,0,0,CH);
@@ -1523,12 +1563,10 @@ function drawSectionBackdrop(i){
   const prop=th.prop;
   if(prop==='hills' || prop==='play'){
     ctx.fillStyle='rgba(255,241,150,.9)'; ctx.beginPath(); ctx.arc(sx+SEC_W*0.72,80,38,0,7); ctx.fill();
-    for(let c=0;c<3;c++) cloud(sx+200+c*430, 70+((c*53)%60), 0.8);
+    for(let c=0;c<5;c++) cloud(sx+120+c*300, 55+((c*67)%95), 0.7+((c*13)%5)/10);   // puffy clouds at varied heights/sizes
     ctx.fillStyle = prop==='play' ? '#8fd17a' : '#7fbf86';
     for(let h=0;h<4;h++){ const hx=sx+h*360; ctx.beginPath(); ctx.moveTo(hx,GROUND_Y); ctx.quadraticCurveTo(hx+180,GROUND_Y-115,hx+360,GROUND_Y); ctx.fill(); }
-    if(prop==='play'){ // playground: floating balloons + a swing-set silhouette
-      ['#ff5fb0','#ffd23d','#5fd0ff'].forEach((col,k)=>{ ctx.fillStyle=col; ctx.beginPath(); ctx.arc(sx+SEC_W*0.4+k*44,150+(k%2)*34,13,0,7); ctx.fill(); ctx.strokeStyle='rgba(255,255,255,.4)'; ctx.beginPath(); ctx.moveTo(sx+SEC_W*0.4+k*44,163+(k%2)*34); ctx.lineTo(sx+SEC_W*0.4+k*44,200); ctx.stroke(); });
-    }
+    if(prop==='play') playgroundScenery(sx);
   } else if(prop==='dungeon'){
     ctx.fillStyle='rgba(0,0,0,.16)';
     for(let by=36; by<GROUND_Y; by+=34){ for(let bxx=sx+((Math.floor(by/34))%2)*40; bxx<sx+SEC_W; bxx+=80){ ctx.fillRect(bxx,by,72,28); } }
@@ -1680,6 +1718,7 @@ function draw(){
       ctx.fillStyle='#7fb04a'; for(let i=6;i<t.w;i+=16){ ctx.beginPath(); ctx.arc(t.x+i,t.y+t.h-8,3,0,7); ctx.fill(); }
       ctx.fillStyle='#ff5a5a'; for(let i=12;i<t.w-6;i+=22){ ctx.beginPath(); ctx.arc(t.x+i,t.y+t.h-13,2.6,0,7); ctx.fill(); }
     } else if(t.type==='boostpad'){
+      supportLegs(t.x, t.w, t.y);
       ctx.fillStyle='#ffd23d'; roundRect(t.x,t.y,t.w,t.h,4); ctx.fill();
       ctx.fillStyle='#a06b00'; ctx.font='bold 17px Segoe UI'; ctx.textAlign='center';
       ctx.fillText('»»»', t.x+t.w/2, t.y+t.h-3); ctx.textAlign='left';
@@ -1710,6 +1749,7 @@ function draw(){
       if(t._lit) t._lit--;
     } else if(t.type==='conveyor'){
       // moving walkway: a belt with scrolling chevrons
+      supportLegs(t.x, t.w, t.y-4);
       ctx.fillStyle='#3a3f4b'; roundRect(t.x,t.y-4,t.w,t.h+8,4); ctx.fill();
       ctx.fillStyle='#facc4a';
       const scroll=(raceFrame*2)%28;
@@ -1857,8 +1897,8 @@ function drawPlayer(p){
   const w = PLAYER_W / Math.sqrt(stretch), h = PLAYER_H * stretch;
   const dir = p.facing>=0?1:-1;
 
-  // ground shadow
-  if(!air){ ctx.fillStyle='rgba(0,0,0,.18)'; ctx.beginPath(); ctx.ellipse(p.x+PLAYER_W/2, GROUND_Y-2, 16, 5, 0, 0, 7); ctx.fill(); }
+  // ground shadow — only near the surface (not when underground in the tunnel)
+  if(!air && (p.y+PLAYER_H) < GROUND_Y+45){ ctx.fillStyle='rgba(0,0,0,.18)'; ctx.beginPath(); ctx.ellipse(p.x+PLAYER_W/2, GROUND_Y-2, 16, 5, 0, 0, 7); ctx.fill(); }
   // dirt spray while burrowing
   if(p.drill>0){
     ctx.fillStyle='#6e4a2c';

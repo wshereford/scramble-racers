@@ -1647,6 +1647,28 @@ function drawSlide(s){
 }
 // Each section paints its own themed backdrop (sky + props) in world space, clipped to
 // its column. The viewport spans at most two sections, so you see a clean transition.
+// fun playground dressing for a section: little trees, ground bushes, flowers + floating balloons.
+// All positions are derived from sx so it's stable frame-to-frame (no flicker).
+function playgroundScenery(sx){
+  const gy=GROUND_Y;
+  // little trees (trunk + leafy canopy)
+  for(let tk=0; tk<2; tk++){ const tx=sx+170+tk*540;
+    ctx.fillStyle='#7a5230'; ctx.fillRect(tx-5, gy-46, 10, 46);
+    ctx.fillStyle='#4e9a3c'; ctx.beginPath(); ctx.arc(tx,gy-58,25,0,7); ctx.arc(tx-19,gy-48,17,0,7); ctx.arc(tx+19,gy-48,17,0,7); ctx.fill();
+    ctx.fillStyle='#5fb04a'; ctx.beginPath(); ctx.arc(tx-6,gy-64,13,0,7); ctx.arc(tx+8,gy-60,11,0,7); ctx.fill();
+  }
+  // bushes hugging the ground
+  for(let bx=sx+60; bx<sx+SEC_W; bx+=190){
+    ctx.fillStyle='#4e9a3c'; ctx.beginPath(); ctx.arc(bx,gy,15,Math.PI,0); ctx.arc(bx+17,gy,20,Math.PI,0); ctx.arc(bx+36,gy,14,Math.PI,0); ctx.closePath(); ctx.fill();
+    ctx.fillStyle='#62c155'; ctx.beginPath(); ctx.arc(bx+15,gy-7,9,Math.PI,0); ctx.fill();
+  }
+  // flowers dotting the grass
+  ['#ff6fae','#ffd23d','#ff8a3d','#ffffff'].forEach((col,k)=>{ ctx.fillStyle=col;
+    for(let fx=sx+95+k*55; fx<sx+SEC_W; fx+=230){ ctx.beginPath(); ctx.arc(fx, gy-4, 2.6,0,7); ctx.fill(); } });
+  // floating balloons
+  ['#ff5fb0','#ffd23d','#5fd0ff'].forEach((col,k)=>{ ctx.fillStyle=col; ctx.beginPath(); ctx.arc(sx+SEC_W*0.4+k*44,150+(k%2)*34,13,0,7); ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,.4)'; ctx.beginPath(); ctx.moveTo(sx+SEC_W*0.4+k*44,163+(k%2)*34); ctx.lineTo(sx+SEC_W*0.4+k*44,200); ctx.stroke(); });
+}
 function drawSectionBackdrop(i){
   const th=secTheme(i), sx=i*SEC_W;
   const g=ctx.createLinearGradient(0,0,0,CH);
@@ -1657,12 +1679,10 @@ function drawSectionBackdrop(i){
   const prop=th.prop;
   if(prop==='hills' || prop==='play'){
     ctx.fillStyle='rgba(255,241,150,.9)'; ctx.beginPath(); ctx.arc(sx+SEC_W*0.72,80,38,0,7); ctx.fill();
-    for(let c=0;c<3;c++) cloud(sx+200+c*430, 70+((c*53)%60), 0.8);
+    for(let c=0;c<5;c++) cloud(sx+120+c*300, 55+((c*67)%95), 0.7+((c*13)%5)/10);   // puffy clouds at varied heights/sizes
     ctx.fillStyle = prop==='play' ? '#8fd17a' : '#7fbf86';
     for(let h=0;h<4;h++){ const hx=sx+h*360; ctx.beginPath(); ctx.moveTo(hx,GROUND_Y); ctx.quadraticCurveTo(hx+180,GROUND_Y-115,hx+360,GROUND_Y); ctx.fill(); }
-    if(prop==='play'){ // playground: floating balloons + a swing-set silhouette
-      ['#ff5fb0','#ffd23d','#5fd0ff'].forEach((col,k)=>{ ctx.fillStyle=col; ctx.beginPath(); ctx.arc(sx+SEC_W*0.4+k*44,150+(k%2)*34,13,0,7); ctx.fill(); ctx.strokeStyle='rgba(255,255,255,.4)'; ctx.beginPath(); ctx.moveTo(sx+SEC_W*0.4+k*44,163+(k%2)*34); ctx.lineTo(sx+SEC_W*0.4+k*44,200); ctx.stroke(); });
-    }
+    if(prop==='play') playgroundScenery(sx);
   } else if(prop==='dungeon'){
     ctx.fillStyle='rgba(0,0,0,.16)';
     for(let by=36; by<GROUND_Y; by+=34){ for(let bxx=sx+((Math.floor(by/34))%2)*40; bxx<sx+SEC_W; bxx+=80){ ctx.fillRect(bxx,by,72,28); } }
