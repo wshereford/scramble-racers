@@ -557,7 +557,8 @@ let lastFinishOrder = [];
 let particles = [];   // {x,y,vx,vy,life,max,color,size,grav}
 let dropped = [];     // banana traps left on the track {x,y,owner,life}
 let portals = [];     // teleporter pairs {ax,ay,bx,by,cd}
-let shots = [];       // weapon projectiles {x,y,vx,vy?,owner,life,kind,grav?}
+let shots = [];       // weapon projectiles {x,y,vx,vy?,owner,life,kind,grav?}  (single-player)
+let netShots = [];    // MULTIPLAYER projectiles, mirrored on every client; each client only lets them hit ITS OWN racer
 let lightningFlash = 0;  // screen-flash timer for the Lightning Strike weapon
 function spawnP(x,y,vx,vy,life,color,size,grav=0.18){ if(particles.length<420) particles.push({x,y,vx,vy,life,max:life,color,size,grav}); }
 function burstP(x,y,n,color,spd,life,size){ for(let k=0;k<n;k++){ const a=Math.random()*6.283,s=spd*(0.35+Math.random()); spawnP(x,y,Math.cos(a)*s,Math.sin(a)*s-1,life*(0.6+Math.random()*0.6),color,size*(0.6+Math.random()*0.8)); } }
@@ -992,7 +993,10 @@ function hitPlayer(target, fromX, kind){
 }
 function explodeBomb(s){
   burstP(s.x,s.y,26,'#ff8a2a',6,28,4.5); burstP(s.x,s.y,14,'#ffd24d',4.5,24,3); SFX.cannon();
-  for(const o of players){ if(o.finished) continue;
+  // In MP, only the local racer can be damaged here (each client is authoritative over its own player);
+  // remote racers take the hit on their own machine and broadcast the result back.
+  const blastTargets = MP.on ? (localP()?[localP()]:[]) : players;
+  for(const o of blastTargets){ if(o.finished) continue;
     const d=Math.hypot((o.x+PLAYER_W/2)-s.x,(o.y+PLAYER_H/2)-s.y);
     if(d<108 && o.invuln<=0 && o.stun<=0 && !(o.stats&&o.stats.flags.forcefield)){ o.stun=44; o.vx=((o.x+PLAYER_W/2)<s.x?-1:1)*12; o.vy=-8; o.fx='BOOM!'; o.fxT=26; o.invuln=Math.max(o.invuln,20); o.grounded=false; }
   }
@@ -1000,21 +1004,57 @@ function explodeBomb(s){
 function doWeapon(p){
   const wp = p.stats.flags.weapon;
   if(!wp || p.weaponCd>0) return false;
-  const fwd = p.facing||1, fire=(t,cd)=>{ p.fx=t; p.fxT=20; p.weaponCd=cd; p.weaponCdMax=cd; p.atkT=14; };
-  if(wp==='sword'){ const tgt=nearestAhead(p,72); if(tgt) hitPlayer(tgt,p.x,'sword'); fire('🗡️',55); sfx(p,'spikes'); return true; }
-  if(wp==='punch'){ const tgt=nearestAhead(p,92); if(tgt) hitPlayer(tgt,p.x,'punch'); fire('🥊',70); sfx(p,'poundhit'); return true; }
-  if(wp==='sling'){ shots.push({x:p.x+PLAYER_W/2+fwd*14, y:p.y+PLAYER_H*0.42, vx:fwd*12, owner:p.idx, life:95, kind:'sling'}); fire('🏹',42); sfx(p,'select'); return true; }
-  if(wp==='bomb'){ shots.push({x:p.x+PLAYER_W/2+fwd*14, y:p.y+PLAYER_H*0.3, vx:fwd*8, vy:-5, owner:p.idx, life:70, kind:'bomb', grav:true}); fire('💣',85); sfx(p,'select'); return true; }
-  if(wp==='freeze'){ shots.push({x:p.x+PLAYER_W/2+fwd*14, y:p.y+PLAYER_H*0.42, vx:fwd*14, owner:p.idx, life:80, kind:'freeze'}); fire('❄️',70); sfx(p,'blink'); return true; }
+  const fwd = p.facing||1, mp = MP.on, fire=(t,cd)=>{ p.fx=t; p.fxT=20; p.weaponCd=cd; p.weaponCdMax=cd; p.atkT=14; };
+  // melee: in SP hit the target directly; in MP send the hit to the victim, who applies it to themselves
+  const melee=(tgt,kind)=>{ if(tgt){ if(mp) mpFireWeapon({k:kind, tgt:tgt.netId}); else hitPlayer(tgt,p.x,kind); } };
+  if(wp==='sword'){ melee(nearestAhead(p,72),'sword'); fire('🗡️',55); sfx(p,'spikes'); return true; }
+  if(wp==='punch'){ melee(nearestAhead(p,92),'punch'); fire('🥊',70); sfx(p,'poundhit'); return true; }
+  if(wp==='sling'){ spawnProjectile(p,{kind:'sling', x:p.x+PLAYER_W/2+fwd*14, y:p.y+PLAYER_H*0.42, vx:fwd*12, life:95}); fire('🏹',42); sfx(p,'select'); return true; }
+  if(wp==='bomb'){ spawnProjectile(p,{kind:'bomb', x:p.x+PLAYER_W/2+fwd*14, y:p.y+PLAYER_H*0.3, vx:fwd*8, vy:-5, life:70, grav:true}); fire('💣',85); sfx(p,'select'); return true; }
+  if(wp==='freeze'){ spawnProjectile(p,{kind:'freeze', x:p.x+PLAYER_W/2+fwd*14, y:p.y+PLAYER_H*0.42, vx:fwd*14, life:80}); fire('❄️',70); sfx(p,'blink'); return true; }
   if(wp==='lightning'){
     // GAME-BREAKER: strike every OTHER racer down for ~3 seconds
-    for(const o of players){ if(o===p||o.finished) continue;
+    if(mp){ mpFireWeapon({k:'lightning'}); }   // each other client zaps its own racer on receipt
+    else { for(const o of players){ if(o===p||o.finished) continue;
       o.stun=180; o.vx=0; o.vy=-5; o.fx='⚡ZAP!'; o.fxT=46; o.invuln=0; o.grounded=false; o.lightT=34;
       burstP(o.x+PLAYER_W/2, o.y+PLAYER_H/2, 22, '#fff7a0', 5, 30, 4);
-    }
-    lightningFlash=30; fire('⚡ STRIKE!', 60*9); SFX.cannon(); if(p.idx===0) SFX.finish(); return true;
+    } }
+    lightningFlash=30; fire('⚡ STRIKE!', 60*9); SFX.cannon(); if(mp||p.idx===0) SFX.finish(); return true;
   }
   return false;
+}
+// spawn a projectile — SP drops it in the local `shots`; MP mirrors it into `netShots` AND broadcasts the spawn
+function spawnProjectile(p, spec){
+  if(MP.on){
+    netShots.push({x:spec.x, y:spec.y, vx:spec.vx, vy:spec.vy||0, kind:spec.kind, grav:!!spec.grav, life:spec.life, owner:p.netId});
+    mpFireWeapon({k:spec.kind, x:Math.round(spec.x), y:Math.round(spec.y), vx:spec.vx, vy:spec.vy||0, g:spec.grav?1:0, life:spec.life});
+  } else {
+    shots.push({x:spec.x, y:spec.y, vx:spec.vx, vy:spec.vy||0, owner:p.idx, life:spec.life, kind:spec.kind, grav:!!spec.grav});
+  }
+}
+// broadcast a weapon event to the room; it only needs to live long enough for everyone to receive it
+function mpFireWeapon(ev){
+  if(!MP.on||!MP.ref) return;
+  ev.o = MP.myId;
+  const ref = MP.ref.child('wfx').push();
+  ref.set(ev);
+  setTimeout(()=>{ try{ ref.remove(); }catch(e){} }, 3000);
+}
+// a remote racer's weapon reached us — apply it to OUR racer only (client-authoritative damage)
+function mpApplyWfx(ev){
+  if(!ev || ev.o===MP.myId) return;          // ignore our own events (we already showed them locally)
+  const me = localP();
+  if(ev.k==='lightning'){
+    if(me && !me.finished){ me.stun=180; me.vx=0; me.vy=-5; me.fx='⚡ZAP!'; me.fxT=46; me.invuln=0; me.grounded=false; me.lightT=34;
+      burstP(me.x+PLAYER_W/2, me.y+PLAYER_H/2, 22, '#fff7a0', 5, 30, 4); }
+    lightningFlash=30; return;
+  }
+  if(ev.k==='sword'||ev.k==='punch'){
+    if(ev.tgt===MP.myId && me) hitPlayer(me, me.x, ev.k);
+    return;
+  }
+  // projectile (sling / freeze / bomb): mirror it so it can travel toward — and hit — our racer
+  netShots.push({x:ev.x, y:ev.y, vx:ev.vx, vy:ev.vy||0, kind:ev.k, grav:!!ev.g, life:ev.life||90, owner:ev.o});
 }
 const WEAPON_KEY = {sword:'F (slash)', sling:'F (fire)', punch:'F (punch)', bomb:'F (lob bomb)', lightning:'F (STRIKE!)'};
 
@@ -1419,7 +1459,7 @@ function startRace(){
     p.rocketT=0; p.finished=false; p.place=0; p.facing=1; p.aiJumpCd=0;
     p.speedJitter = i===0?1.0:(0.95+Math.random()*0.09);
   });
-  particles=[]; dropped=[]; shots=[];
+  particles=[]; dropped=[]; shots=[]; netShots=[];
   raceFrame=0; MP.lastSend=0; countdown=180; started=false; cameraX=0; cameraY=0;
   lastCountShown=-1; firstFinishFrame=-1;
   setState('race');
@@ -1451,6 +1491,23 @@ function raceTick(){
     }
     if(!done && s.grav && s.y>GROUND_Y-6){ explodeBomb(s); done=true; }
     if(done || s.life<=0){ if(!done && s.kind==='bomb') explodeBomb(s); shots.splice(si,1); }
+  }
+
+  // MP: networked projectiles (mirrored from every racer's broadcasts). Same flight physics as `shots`,
+  // but they only collide with the LOCAL racer — each client decides its own hits and broadcasts the result.
+  if(MP.on){
+    const me = localP();
+    for(let i=netShots.length-1; i>=0; i--){ const s=netShots[i];
+      s.x+=s.vx; if(s.grav){ s.vy=(s.vy||0)+0.4; s.y+=s.vy; }
+      s.life--;
+      let done=false;
+      const canHitMe = me && !me.finished && !(s.owner===MP.myId && s.kind!=='bomb'); // your own non-bomb shots fly past you
+      if(canHitMe && Math.abs((me.x+PLAYER_W/2)-s.x)<19 && Math.abs((me.y+PLAYER_H/2)-s.y)<22){
+        if(s.kind==='bomb') explodeBomb(s); else hitPlayer(me, s.x-s.vx, s.kind); done=true;
+      }
+      if(!done && s.grav && s.y>GROUND_Y-6){ explodeBomb(s); done=true; }
+      if(done || s.life<=0){ if(!done && s.kind==='bomb') explodeBomb(s); netShots.splice(i,1); }
+    }
   }
 
   // race ends when everyone's in, the 15s sudden-death clock expires, or the 95s backstop hits
@@ -1839,7 +1896,7 @@ function draw(){
   }
   ctx.textAlign='left';
   // weapon projectiles (pebbles / lobbed bombs)
-  for(const s of shots){
+  for(const s of (MP.on?netShots:shots)){
     if(s.kind==='bomb'){ ctx.font='18px Segoe UI Emoji'; ctx.textAlign='center'; ctx.fillText('💣', s.x, s.y+6); ctx.textAlign='left'; }
     else if(s.kind==='freeze'){ ctx.fillStyle='#9af3ff'; ctx.beginPath(); ctx.arc(s.x,s.y,6,0,7); ctx.fill(); ctx.fillStyle='rgba(255,255,255,.75)'; ctx.beginPath(); ctx.arc(s.x-2,s.y-2,2.5,0,7); ctx.fill(); if(Math.random()<0.5) spawnP(s.x,s.y,(Math.random()-0.5)*1.5,(Math.random()-0.5)*1.5,12,'#bff',2,0); }
     else { ctx.fillStyle='#6b5030'; ctx.beginPath(); ctx.arc(s.x, s.y, 5, 0, 7); ctx.fill(); ctx.fillStyle='rgba(255,255,255,.45)'; ctx.beginPath(); ctx.arc(s.x-1, s.y-1, 2, 0, 7); ctx.fill(); }
@@ -2284,7 +2341,7 @@ window.addEventListener('keyup',e=>{ keys[e.key]=false; });
 // with real physics and broadcast its position ~20×/sec; other racers are drawn by
 // playing back their broadcasts. Casual client-authoritative netcode — perfect for friends.
 const MP = { on:false, db:null, myId:null, mySlot:0, isHost:false, hostId:null, code:null, ref:null,
-  order:[], data:{}, remote:{}, seed:1, lastSend:0 };
+  order:[], data:{}, remote:{}, seed:1, lastSend:0, wfxReady:false };
 function lobbyStatus(t){ const e=$('lobbyStatus'); if(e) e.textContent=t; }
 function myName(){ return (($('nameInput').value||'').trim().slice(0,10))||'Player'; }
 function randCode(){ let c=''; const A='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; for(let i=0;i<4;i++) c+=A[Math.floor(Math.random()*A.length)]; return c; }
@@ -2318,6 +2375,10 @@ function mpEnterRoom(code, host){
   MP.ref.child('state').on('value', s=> { if(s.val()==='race') mpStartRace(); else if(s.val()==='lobby' && state==='lobby') setState('lobby'); else if(s.val()==='done'&&state==='race') mpResults(); else if(s.val()==='shop'&&!MP.isHost) { showShop(); } });
   MP.ref.child('seed').on('value', s=>{ if(s.val()) MP.seed=s.val(); });
   MP.ref.child('live').on('value', s=>{ MP.remote=s.val()||{}; });
+  // weapon events. Firebase fires the initial child_added batch BEFORE the first 'value',
+  // so we flip wfxReady on that 'value' to skip replaying stale events present when we joined.
+  MP.ref.child('wfx').on('value', ()=>{ MP.wfxReady=true; });
+  MP.ref.child('wfx').on('child_added', s=>{ if(MP.wfxReady) mpApplyWfx(s.val()); });
   $('lobbyEntry').style.display='none'; $('lobbyRoom').style.display=''; $('roomCode').textContent=code;
 }
 function mpLeave(){ try{ MP.ref.child('players/'+MP.myId).remove(); MP.ref.child('live/'+MP.myId).remove(); }catch(e){} location.reload(); }
@@ -2356,7 +2417,7 @@ function mpStartRace(){
   lastFinishOrder=[];
   RNG = mulberry32(MP.seed); rebuildTrackObjects(); buildCoins(); RNG = Math.random;
   players.forEach((p,i)=>{ p.stats=computeStats(p.build); p.x=60+i*8; p.y=GROUND_Y-PLAYER_H; p.vx=0; p.vy=0; p.grounded=true; p.facing=1; p.finished=false; p.place=0; p.speedJitter=1.0; });
-  particles=[]; dropped=[]; shots=[];
+  particles=[]; dropped=[]; shots=[]; netShots=[];
   raceFrame=0; MP.lastSend=0; countdown=180; started=false; cameraX=0; cameraY=0; lastCountShown=-1; firstFinishFrame=-1;
   // drop stale race-1 finish positions so remote racers don't render frozen at the old finish line
   MP.remote={};
