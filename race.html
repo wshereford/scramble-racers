@@ -2249,10 +2249,26 @@ function showFinal(){
 $('finalRestart').onclick=()=>{ resetMatch(); buildBaseLayout(); showDraft(); };
 
 //////////////////// MAIN LOOP ////////////////////
-function loop(){
-  if(state==='race') raceTick();
-  draw();
+// Fixed-timestep loop: physics ALWAYS advances at 60 Hz regardless of the monitor's
+// refresh rate. Without this, raceTick() ran once per screen refresh, so a 120/144/240 Hz
+// display ran the game 2-4x too fast with low-looking jumps (gravity ticking that much faster).
+const SIM_STEP = 1000/60;        // ms per physics step
+let _simPrev = 0, _simAcc = 0;
+function loop(ts){
   requestAnimationFrame(loop);
+  if(ts===undefined) return;             // very first rAF callback can arrive with no timestamp
+  if(_simPrev===0){ _simPrev = ts; return; }
+  let dt = ts - _simPrev; _simPrev = ts;
+  if(dt > 250) dt = 250;                 // tab was backgrounded — don't fast-forward the sim
+  if(state==='race'){
+    _simAcc += dt;
+    let steps = 0;
+    while(_simAcc >= SIM_STEP && steps < 5){ raceTick(); _simAcc -= SIM_STEP; steps++; }
+    if(steps===5) _simAcc = 0;           // can't keep up — drop the backlog, avoid a spiral
+  } else {
+    _simAcc = 0;                         // not racing: keep no physics backlog
+  }
+  draw();
 }
 
 window.addEventListener('keydown',e=>{
