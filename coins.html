@@ -1150,8 +1150,9 @@ function updatePlayer(p, started){
       const surfY = slideSurfaceY(ramp, cxp);
       const feet = p.y+PLAYER_H, riding = p.onSlide===ramp;
       // catch the chute from above, OR — if already riding — stay glued even when you're going so fast the
-      // chute drops away beneath you between frames (so speed never throws you off the slide).
-      if((feet >= surfY-10 && feet < surfY+55 && p.vy>=-2) || (riding && feet < surfY+80)){
+      // chute drops away beneath you between frames. The `p.vy>=-2` means a JUMP (vy goes up) releases you:
+      // jumping is the only way off the slide; you can't just run off the side/end.
+      if((feet >= surfY-10 && feet < surfY+55 && p.vy>=-2) || (riding && feet < surfY+80 && p.vy>=-2)){
         const xc = ramp.x + ramp.w*0.30;
         p.y = surfY - PLAYER_H; p.vy = 0; p.grounded = true; p.onSlide = ramp;
         const fwd = p.facing||1, maxSpd = BASE_SPEED*st.speed*p.speedJitter;
@@ -1432,7 +1433,8 @@ function raceTick(){
   const me = players[0];
   cameraX = clamp(me.x - CW*0.32, 0, TRACK_LEN - CW);
   const dev = (me.y+PLAYER_H) - GROUND_Y;                 // feet relative to ground (+ underground, − up high)
-  const tY = clamp(dev*0.9, -135, 215);
+  // follow you up only gently when airborne (and cap it) so the GROUND stays in view when you jump.
+  const tY = clamp(dev*0.55, -45, 215);
   cameraY += (tY - cameraY)*0.10;
   if(Math.abs(cameraY)<0.4) cameraY=0;
 }
@@ -1535,6 +1537,22 @@ function drawSlide(s){
 }
 // Each section paints its own themed backdrop (sky + props) in world space, clipped to
 // its column. The viewport spans at most two sections, so you see a clean transition.
+// a row of grumpy little spike-critters — cute, but those spikes HURT, so don't touch.
+function drawSpikeCritters(t){
+  const baseY=t.y+t.h, slot=27;
+  for(let i=0; i+10<t.w; i+=slot){
+    const cx=t.x+i+slot/2, by=baseY, r=11, bob=Math.sin(raceFrame*0.09+cx)*1.4, topY=by-2*r-bob;
+    ctx.fillStyle='#fff4e0';
+    for(let s=-1;s<=1;s++){ const sxk=cx+s*7; ctx.beginPath(); ctx.moveTo(sxk-4, topY+4); ctx.lineTo(sxk, topY-9); ctx.lineTo(sxk+4, topY+4); ctx.closePath(); ctx.fill(); }
+    ctx.fillStyle='#8a4bd0'; ctx.beginPath(); ctx.arc(cx, by-r-bob, r, Math.PI, 0); ctx.lineTo(cx+r, by); ctx.lineTo(cx-r, by); ctx.closePath(); ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,.15)'; ctx.beginPath(); ctx.arc(cx-3, by-r-3-bob, 4,0,7); ctx.fill();
+    ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(cx-4, by-r-1-bob, 3.3,0,7); ctx.arc(cx+4, by-r-1-bob, 3.3,0,7); ctx.fill();
+    ctx.fillStyle='#1a0f2a'; ctx.beginPath(); ctx.arc(cx-4, by-r-bob, 1.7,0,7); ctx.arc(cx+4, by-r-bob, 1.7,0,7); ctx.fill();
+    ctx.strokeStyle='#3a1d5c'; ctx.lineWidth=1.7; ctx.beginPath();
+    ctx.moveTo(cx-7, by-r-6-bob); ctx.lineTo(cx-1, by-r-3.5-bob); ctx.moveTo(cx+7, by-r-6-bob); ctx.lineTo(cx+1, by-r-3.5-bob); ctx.stroke();
+    ctx.fillStyle='#2a1242'; ctx.beginPath(); ctx.moveTo(cx-4, by-3-bob); ctx.lineTo(cx-2, by-0.5-bob); ctx.lineTo(cx, by-3-bob); ctx.lineTo(cx+2, by-0.5-bob); ctx.lineTo(cx+4, by-3-bob); ctx.closePath(); ctx.fill();
+  }
+}
 // fun playground dressing for a section: little trees, ground bushes, flowers + floating balloons.
 // All positions are derived from sx so it's stable frame-to-frame (no flicker).
 function playgroundScenery(sx){
@@ -1705,11 +1723,7 @@ function draw(){
       ctx.fillStyle='#d4bd7e'; for(let sx2=t.x+8;sx2<t.x+t.w;sx2+=24){ ctx.fillRect(sx2,t.y+3,12,2); }
       ctx.fillStyle='#caa84a'; ctx.font='13px Segoe UI Emoji'; ctx.fillText('🏖️', t.x+10, t.y+t.h+1);
     } else if(t.type==='spikes'){
-      ctx.fillStyle='#7a1d12'; ctx.fillRect(t.x, t.y+t.h-5, t.w, 5); // base bar
-      ctx.fillStyle='#d23b27';
-      for(let i=0;i<t.w-2;i+=18){ ctx.beginPath(); ctx.moveTo(t.x+i,t.y+t.h); ctx.lineTo(t.x+i+9,t.y); ctx.lineTo(t.x+i+18,t.y+t.h); ctx.fill(); }
-      ctx.fillStyle='rgba(255,255,255,.5)';
-      for(let i=0;i<t.w-2;i+=18){ ctx.beginPath(); ctx.moveTo(t.x+i+9,t.y); ctx.lineTo(t.x+i+12,t.y+8); ctx.lineTo(t.x+i+9,t.y+8); ctx.fill(); }
+      drawSpikeCritters(t);
     } else if(t.type==='thorns'){
       // spiky thorn bush — hit it → back to the section start
       ctx.fillStyle='#3a6b2a'; ctx.beginPath(); ctx.ellipse(t.x+t.w/2,t.y+t.h-2,t.w/2,t.h*0.62,0,0,7); ctx.fill();
@@ -1919,14 +1933,20 @@ function drawPlayer(p){
   if(p.stun>0){ ctx.fillStyle='rgba(255,255,255,.45)'; roundRect(-w/2,-h,w,h,9); ctx.fill(); }
   // face
   const eyY = -h+13, eoff = 5*dir;
+  // rosy cheeks (cute!)
+  ctx.fillStyle='rgba(255,130,160,.5)';
+  ctx.beginPath(); ctx.ellipse(eoff-9, eyY+7, 3.4, 2.3, 0,0,7); ctx.ellipse(eoff+11, eyY+7, 3.4, 2.3, 0,0,7); ctx.fill();
+  // big shiny eyes
   ctx.fillStyle='#fff';
-  ctx.beginPath(); ctx.arc(eoff-4, eyY, 5,0,7); ctx.arc(eoff+6, eyY, 5,0,7); ctx.fill();
+  ctx.beginPath(); ctx.arc(eoff-4, eyY, 5.6,0,7); ctx.arc(eoff+6, eyY, 5.6,0,7); ctx.fill();
   ctx.fillStyle='#111';
   if(p.stun>0){ // dizzy X eyes
     ctx.font='bold 9px Segoe UI'; ctx.fillText('x', eoff-7, eyY+3); ctx.fillText('x', eoff+3, eyY+3);
   } else {
     const pu = dir*1.5;
-    ctx.beginPath(); ctx.arc(eoff-4+pu, eyY, 2.2,0,7); ctx.arc(eoff+6+pu, eyY, 2.2,0,7); ctx.fill();
+    ctx.beginPath(); ctx.arc(eoff-4+pu, eyY+0.6, 2.6,0,7); ctx.arc(eoff+6+pu, eyY+0.6, 2.6,0,7); ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,.95)';   // sparkle
+    ctx.beginPath(); ctx.arc(eoff-5+pu, eyY-1, 1.1,0,7); ctx.arc(eoff+5+pu, eyY-1, 1.1,0,7); ctx.fill();
   }
   // mouth: open when airborne / excited, smile otherwise
   ctx.strokeStyle='#111'; ctx.lineWidth=1.6; ctx.beginPath();
@@ -1966,11 +1986,10 @@ function drawPlayer(p){
     ctx.fillText(hi, mx, headTop + 11);
     ctx.restore();
   }
-  // the rest of the build WORN on the racer: ability held in hand, gravity gizmo on the
-  // back, shoes on the feet (helmet's already on the head). Hidden while burrowing.
+  // the rest of the build WORN on the racer: ability held in hand, shoes on the feet
+  // (helmet's already on the head). Hidden while burrowing. (No more "holding your gravity".)
   if(p.build && p.build.ability && p.drill<=0){
     ctx.save(); ctx.textAlign='center';
-    ctx.font='12px Segoe UI Emoji'; ctx.fillText(p.build.gravity.icon, mx - dir*15, headTop+18);   // back gizmo
     ctx.font='13px Segoe UI Emoji'; ctx.fillText(p.build.shoes.icon, mx + dir*4, p.y+PLAYER_H+5);  // shoes
     // ability held out front, on a little arm
     ctx.strokeStyle=p.color; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(mx+dir*6, headTop+16); ctx.lineTo(mx+dir*15, headTop+15); ctx.stroke();
