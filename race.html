@@ -2031,44 +2031,65 @@ function drawFinish(){
 // the racer: a round little CHICK. Drawn in the caller's translated space (origin at feet-center,
 // body rises to y=-h). Keeps all the state hooks: facing (dir), squash/stretch (w,h), color,
 // dizzy-X eyes when stunned, open beak when airborne.
-function drawChick(p, air, w, h, dir){
+// A rounded "bean racer" — an Among-Us-inspired silhouette (capsule body, backpack, stubby
+// legs) made into its own character: twin-lens racing goggles instead of a single visor, a
+// fuel-pack, a little smile, and an animated run cycle. Anchored at the feet (0,0), drawn up.
+function drawRacer(p, air, w, h, dir){
   // dash/speed ghost trail
-  if(p.dash>0){ ctx.globalAlpha=0.32; ctx.fillStyle=p.color; ctx.beginPath(); ctx.ellipse(-dir*14,-h/2,w/2,h/2,0,0,7); ctx.fill(); ctx.globalAlpha=1; }
-  // little orange legs/feet (tuck up when airborne)
-  const fb = air?3:0;
-  ctx.strokeStyle='#f0a830'; ctx.lineWidth=2.4; ctx.lineCap='round';
-  ctx.beginPath();
-  ctx.moveTo(-5,-fb-4); ctx.lineTo(-5,-fb); ctx.moveTo(-8,-fb); ctx.lineTo(-2,-fb);
-  ctx.moveTo(5, fb-4); ctx.lineTo(5, fb);  ctx.moveTo(2, fb);  ctx.lineTo(8, fb);
-  ctx.stroke(); ctx.lineCap='butt';
-  // egg body
-  ctx.fillStyle=p.color; ctx.beginPath(); ctx.ellipse(0,-h/2,w/2,h/2,0,0,7); ctx.fill();
-  // wing nubs + glossy belly
-  ctx.fillStyle='rgba(0,0,0,.10)'; ctx.beginPath();
-  ctx.ellipse(-w/2+3,-h*0.42,4.5,9,0.25,0,7); ctx.ellipse(w/2-3,-h*0.42,4.5,9,-0.25,0,7); ctx.fill();
-  ctx.fillStyle='rgba(255,255,255,.22)'; ctx.beginPath(); ctx.ellipse(-w*0.16,-h*0.6,w*0.26,h*0.22,-0.3,0,7); ctx.fill();
-  if(p.stun>0){ ctx.fillStyle='rgba(255,255,255,.4)'; ctx.beginPath(); ctx.ellipse(0,-h/2,w/2,h/2,0,0,7); ctx.fill(); }
-  // face
-  const eyY=-h*0.6, eoff=4*dir;
-  ctx.fillStyle='rgba(255,130,160,.5)'; ctx.beginPath(); ctx.ellipse(eoff-9,eyY+8,3.3,2.2,0,0,7); ctx.ellipse(eoff+9,eyY+8,3.3,2.2,0,0,7); ctx.fill();
-  ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(eoff-5,eyY,4.6,0,7); ctx.arc(eoff+5,eyY,4.6,0,7); ctx.fill();
-  ctx.fillStyle='#111';
-  if(p.stun>0){ ctx.font='bold 8px Segoe UI'; ctx.textAlign='center'; ctx.fillText('x',eoff-5,eyY+3); ctx.fillText('x',eoff+5,eyY+3); ctx.textAlign='left'; }
-  else {
-    const pu=dir*1.3;
-    ctx.beginPath(); ctx.arc(eoff-5+pu,eyY+0.5,2.3,0,7); ctx.arc(eoff+5+pu,eyY+0.5,2.3,0,7); ctx.fill();
-    ctx.fillStyle='rgba(255,255,255,.95)'; ctx.beginPath(); ctx.arc(eoff-6+pu,eyY-1,1,0,7); ctx.arc(eoff+4+pu,eyY-1,1,0,7); ctx.fill();
-  }
-  // little beak (opens when airborne / excited)
-  const by=eyY+6, bx=eoff;
-  ctx.fillStyle='#ffae34';
-  if(air){
-    ctx.beginPath(); ctx.moveTo(bx-3,by-1); ctx.lineTo(bx+dir*6,by-3); ctx.lineTo(bx-3,by-2); ctx.closePath(); ctx.fill();
-    ctx.fillStyle='#e8902a'; ctx.beginPath(); ctx.moveTo(bx-3,by+1); ctx.lineTo(bx+dir*6,by+3); ctx.lineTo(bx-3,by+2); ctx.closePath(); ctx.fill();
-  } else { ctx.beginPath(); ctx.moveTo(bx-3,by-2); ctx.lineTo(bx+dir*5,by); ctx.lineTo(bx-3,by+2); ctx.closePath(); ctx.fill(); }
-  // happy smile just under the beak
-  if(p.stun<=0){ ctx.strokeStyle='rgba(70,35,15,.6)'; ctx.lineWidth=1.4; ctx.lineCap='round';
-    ctx.beginPath(); ctx.arc(eoff, by+4, 3.2, 0.15*Math.PI, 0.85*Math.PI); ctx.stroke(); ctx.lineCap='butt'; }
+  if(p.dash>0){ ctx.globalAlpha=0.30; ctx.fillStyle=p.color; ctx.beginPath(); ctx.ellipse(-dir*14,-h/2,w*0.5,h*0.5,0,0,7); ctx.fill(); ctx.globalAlpha=1; }
+
+  const moving = !air && Math.abs(p.vx) > 0.5;
+  const t   = raceFrame*0.45;
+  const swA = moving ? Math.sin(t)        : (air ? -0.7 : 0);   // front leg swing
+  const swB = moving ? Math.sin(t+Math.PI): (air ? -0.7 : 0);   // back leg swing
+
+  const legLen = air ? 3 : 5;
+  const bw = w*0.96, bh = h - legLen;
+  const bodyTop = -h, bodyBot = -legLen, r = bw*0.5;
+
+  // ---- backpack (behind, on the trailing side) ----
+  const packX = -dir*(bw*0.40);
+  ctx.fillStyle = p.color;        roundRect(packX-5, bodyTop+bh*0.30, 11, bh*0.44, 4); ctx.fill();
+  ctx.fillStyle = 'rgba(0,0,0,.20)'; roundRect(packX-5, bodyTop+bh*0.30, 11, bh*0.44, 4); ctx.fill();
+
+  // ---- stubby legs with a run cycle (drawn behind the body) ----
+  ctx.lineCap='round'; ctx.lineWidth=5.5; ctx.strokeStyle=p.color;
+  const bkx=-bw*0.22+swB*3, bky=-Math.max(0,swB)*3.5, frx=bw*0.22+swA*3, fry=-Math.max(0,swA)*3.5;
+  ctx.beginPath(); ctx.moveTo(-bw*0.22, bodyBot); ctx.lineTo(bkx, bky); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo( bw*0.22, bodyBot); ctx.lineTo(frx, fry); ctx.stroke();
+  ctx.lineCap='butt';
+  ctx.fillStyle='rgba(0,0,0,.32)';   // little shoes
+  ctx.beginPath(); ctx.ellipse(bkx+dir*2, bky, 4.2, 2.4, 0,0,7); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(frx+dir*2, fry, 4.2, 2.4, 0,0,7); ctx.fill();
+
+  // ---- capsule body ----
+  ctx.fillStyle=p.color; roundRect(-bw/2, bodyTop, bw, bh, r); ctx.fill();
+  ctx.save(); roundRect(-bw/2, bodyTop, bw, bh, r); ctx.clip();
+  ctx.fillStyle='rgba(0,0,0,.16)';     ctx.beginPath(); ctx.ellipse(-dir*bw*0.5, bodyTop+bh*0.55, bw*0.55, bh*0.72, 0,0,7); ctx.fill();   // back-side core shadow
+  ctx.fillStyle='rgba(0,0,0,.10)';     ctx.beginPath(); ctx.ellipse(0, bodyBot, bw*0.6, bh*0.18, 0,0,7); ctx.fill();                      // base shading
+  ctx.fillStyle='rgba(255,255,255,.30)'; ctx.beginPath(); ctx.ellipse(dir*bw*0.16, bodyTop+bh*0.22, bw*0.30, bh*0.18, -0.3,0,7); ctx.fill(); // glossy highlight
+  ctx.restore();
+  ctx.strokeStyle='rgba(0,0,0,.18)'; ctx.lineWidth=1.5; roundRect(-bw/2, bodyTop, bw, bh, r); ctx.stroke();
+  if(p.stun>0){ ctx.fillStyle='rgba(255,255,255,.4)'; roundRect(-bw/2, bodyTop, bw, bh, r); ctx.fill(); }
+
+  // ---- racing goggles (twin-lens → distinct from the single Among-Us visor) ----
+  const visY = bodyTop + bh*0.30, visX = dir*bw*0.10, vw = bw*0.66, vh = bh*0.20;
+  ctx.strokeStyle='rgba(28,32,42,.9)'; ctx.lineWidth=3.2; ctx.lineCap='round';   // head strap
+  ctx.beginPath(); ctx.moveTo(-bw*0.5, visY+1.5); ctx.lineTo(bw*0.5, visY-1.5); ctx.stroke(); ctx.lineCap='butt';
+  ctx.fillStyle='#222733'; roundRect(visX-vw/2, visY-vh/2-1.5, vw, vh+3, vh*0.7); ctx.fill();   // frame
+  ctx.fillStyle='#7fdcff'; roundRect(visX-vw/2+2, visY-vh/2, vw-4, vh, vh*0.6); ctx.fill();      // glass
+  ctx.fillStyle='rgba(18,78,120,.55)'; ctx.beginPath(); ctx.ellipse(visX, visY+vh*0.28, vw*0.42, vh*0.42, 0,0,7); ctx.fill();   // lens depth
+  ctx.strokeStyle='#222733'; ctx.lineWidth=1.6; ctx.beginPath(); ctx.moveTo(visX, visY-vh/2); ctx.lineTo(visX, visY+vh/2); ctx.stroke();  // twin-lens divider
+  ctx.fillStyle='rgba(255,255,255,.92)';   // glints
+  ctx.beginPath(); ctx.ellipse(visX-vw*0.22, visY-vh*0.20, vw*0.10, vh*0.30, -0.5,0,7); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(visX+vw*0.18, visY-vh*0.20, vw*0.06, vh*0.22, -0.5,0,7); ctx.fill();
+
+  // ---- little face under the visor ----
+  const my = visY + vh*1.5;
+  if(p.stun>0){ ctx.strokeStyle='rgba(30,20,20,.7)'; ctx.lineWidth=1.6; ctx.lineCap='round';
+    ctx.beginPath(); ctx.arc(visX, my+1.5, 2.6, 1.15*Math.PI, 1.85*Math.PI); ctx.stroke(); ctx.lineCap='butt'; }   // frown
+  else { ctx.strokeStyle='rgba(45,28,22,.65)'; ctx.lineWidth=1.5; ctx.lineCap='round';
+    ctx.beginPath(); ctx.arc(visX, my, air?3.4:3, 0.10*Math.PI, 0.90*Math.PI); ctx.stroke(); ctx.lineCap='butt'; }   // smile
 }
 function drawPlayer(p){
   const air = !p.grounded;
@@ -2087,7 +2108,7 @@ function drawPlayer(p){
 
   ctx.save();
   ctx.translate(p.x+PLAYER_W/2, p.y+PLAYER_H); // anchor at feet center
-  drawChick(p, air, w, h, dir);
+  drawRacer(p, air, w, h, dir);
   ctx.restore();
 
   const headTop = p.y + PLAYER_H - h;
@@ -2406,7 +2427,26 @@ function showFinal(){
     sections.map((s,i)=>`<b>S${i+1}:</b> ${secTheme(i).icon} ${secTheme(i).name}`).join('<br>');
   setState('final');
 }
-$('finalRestart').onclick=()=>{ resetMatch(); buildBaseLayout(); showDraft(); };
+// PLAY AGAIN — go back to the lobby and re-ready for a fresh tournament. The host resets the
+// room state so every client follows; a non-host just returns itself and waits. (The old
+// showDraft() came from the removed single-player draft phase and no longer exists here.)
+function returnToLobby(){
+  stopMusic();
+  // drop carried-over points/coins/builds so the next mpStartRace rebuilds a clean tournament
+  players.forEach(p=>{ p.points=0; p.coins=0; p.raceCoins=0; p.build=freshBuild(); p.bought={}; p.coinMag=0; p.owned=new Set(); p.bonus={speed:1,jump:1,gravity:1}; });
+  raceNum=0;
+  if(MP.on && MP.ref){
+    try{ MP.ref.child('players/'+MP.myId+'/ready').set(false); }catch(e){}
+    try{ MP.ref.child('players/'+MP.myId+'/shopReady').set(false); }catch(e){}
+    // re-arm leave-on-disconnect (mpStartRace cancelled it so reconnects mid-race wouldn't drop us)
+    try{ MP.ref.child('players/'+MP.myId).onDisconnect().remove(); MP.ref.child('live/'+MP.myId).onDisconnect().remove(); }catch(e){}
+  }
+  setState('lobby');
+}
+$('finalRestart').onclick=()=>{
+  if(MP.on && MP.isHost && MP.ref){ MP.ref.child('cg').remove(); MP.ref.update({ state:'lobby', seed:0, raceNum:0 }); }
+  returnToLobby();
+};
 
 //////////////////// MAIN LOOP ////////////////////
 // Fixed-timestep loop: physics ALWAYS advances at 60 Hz regardless of the monitor's
@@ -2483,7 +2523,7 @@ function mpEnterRoom(code, host){
   if(host) MP.ref.child('host').set(MP.myId);
   MP.ref.child('host').on('value', s=>{ MP.hostId=s.val(); MP.isHost=(s.val()===MP.myId); renderLobby(); });
   MP.ref.child('players').on('value', s=> onPlayers(s.val()||{}) );
-  MP.ref.child('state').on('value', s=> { if(s.val()==='race') mpStartRace(); else if(s.val()==='lobby' && state==='lobby') setState('lobby'); else if(s.val()==='done'&&state==='race') mpResults(); });
+  MP.ref.child('state').on('value', s=> { const v=s.val(); if(v==='race') mpStartRace(); else if(v==='lobby'){ if(state!=='lobby' && state!=='race') returnToLobby(); } else if(v==='done'&&state==='race') mpResults(); });
   MP.ref.child('seed').on('value', s=>{ if(s.val()) MP.seed=s.val(); });
   // which race of the series we're on — host owns it; everyone mirrors it so scoring + series-end agree
   MP.ref.child('raceNum').on('value', s=>{ if(s.val()!=null) raceNum=s.val(); });

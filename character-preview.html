@@ -1,0 +1,133 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Bean Racers — character preview</title>
+<!--
+  TEMPORARY design-review page for the redesigned racer characters.
+  The drawRacer() function below is a copy of the one in coins.html / race.html — keep it in
+  sync if you tweak the design, then delete this file once the look is approved.
+-->
+<style>
+  html,body{margin:0;height:100%;background:#1b2336;color:#dfe6f4;font:15px/1.5 Segoe UI,system-ui,sans-serif}
+  .wrap{max-width:1000px;margin:0 auto;padding:26px 20px 60px}
+  h1{font-size:24px;margin:0 0 2px} .sub{color:#8fa0c0;margin:0 0 18px}
+  canvas{display:block;width:100%;background:linear-gradient(#26324f,#1b2336);border-radius:14px;box-shadow:0 8px 30px #0006}
+  .controls{margin:16px 0 0;display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+  label{display:flex;gap:7px;align-items:center;color:#aebbd6}
+  input[type=range]{width:150px}
+  .note{margin-top:14px;color:#7e8fb0;font-size:13px}
+</style>
+<div class="wrap">
+  <h1>🫛 Bean Racers</h1>
+  <p class="sub">Redesigned characters — Among-Us-inspired capsule body, twin-lens racing goggles, fuel-pack, animated run cycle.</p>
+  <canvas id="c" width="1000" height="460"></canvas>
+  <div class="controls">
+    <label>Speed <input id="spd" type="range" min="0" max="2" step="0.05" value="1"></label>
+    <label><input id="face" type="checkbox"> face left</label>
+    <span id="fps" style="color:#6f80a0"></span>
+  </div>
+  <p class="note">Top row: each of the 4 player colors, running. Bottom row: poses — idle, running + dash trail, mid-jump, and stunned (KO). This is just a preview; the same look is already live in <b>coins.html</b> and <b>race.html</b>.</p>
+</div>
+<script>
+const PLAYER_W = 26, PLAYER_H = 34;
+const COLORS = ['#e74c3c','#3aa6ff','#2ecc71','#f5c542'];
+const NAMES  = ['You','CPU Rex','CPU Mim','CPU Zoo'];
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+let raceFrame = 0;
+const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+
+function roundRect(x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
+}
+
+/* ===== EXACT COPY of drawRacer() from coins.html / race.html ===== */
+function drawRacer(p, air, w, h, dir){
+  if(p.dash>0){ ctx.globalAlpha=0.30; ctx.fillStyle=p.color; ctx.beginPath(); ctx.ellipse(-dir*14,-h/2,w*0.5,h*0.5,0,0,7); ctx.fill(); ctx.globalAlpha=1; }
+
+  const moving = !air && Math.abs(p.vx) > 0.5;
+  const t   = raceFrame*0.45;
+  const swA = moving ? Math.sin(t)        : (air ? -0.7 : 0);
+  const swB = moving ? Math.sin(t+Math.PI): (air ? -0.7 : 0);
+
+  const legLen = air ? 3 : 5;
+  const bw = w*0.96, bh = h - legLen;
+  const bodyTop = -h, bodyBot = -legLen, r = bw*0.5;
+
+  const packX = -dir*(bw*0.40);
+  ctx.fillStyle = p.color;        roundRect(packX-5, bodyTop+bh*0.30, 11, bh*0.44, 4); ctx.fill();
+  ctx.fillStyle = 'rgba(0,0,0,.20)'; roundRect(packX-5, bodyTop+bh*0.30, 11, bh*0.44, 4); ctx.fill();
+
+  ctx.lineCap='round'; ctx.lineWidth=5.5; ctx.strokeStyle=p.color;
+  const bkx=-bw*0.22+swB*3, bky=-Math.max(0,swB)*3.5, frx=bw*0.22+swA*3, fry=-Math.max(0,swA)*3.5;
+  ctx.beginPath(); ctx.moveTo(-bw*0.22, bodyBot); ctx.lineTo(bkx, bky); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo( bw*0.22, bodyBot); ctx.lineTo(frx, fry); ctx.stroke();
+  ctx.lineCap='butt';
+  ctx.fillStyle='rgba(0,0,0,.32)';
+  ctx.beginPath(); ctx.ellipse(bkx+dir*2, bky, 4.2, 2.4, 0,0,7); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(frx+dir*2, fry, 4.2, 2.4, 0,0,7); ctx.fill();
+
+  ctx.fillStyle=p.color; roundRect(-bw/2, bodyTop, bw, bh, r); ctx.fill();
+  ctx.save(); roundRect(-bw/2, bodyTop, bw, bh, r); ctx.clip();
+  ctx.fillStyle='rgba(0,0,0,.16)';     ctx.beginPath(); ctx.ellipse(-dir*bw*0.5, bodyTop+bh*0.55, bw*0.55, bh*0.72, 0,0,7); ctx.fill();
+  ctx.fillStyle='rgba(0,0,0,.10)';     ctx.beginPath(); ctx.ellipse(0, bodyBot, bw*0.6, bh*0.18, 0,0,7); ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,.30)'; ctx.beginPath(); ctx.ellipse(dir*bw*0.16, bodyTop+bh*0.22, bw*0.30, bh*0.18, -0.3,0,7); ctx.fill();
+  ctx.restore();
+  ctx.strokeStyle='rgba(0,0,0,.18)'; ctx.lineWidth=1.5; roundRect(-bw/2, bodyTop, bw, bh, r); ctx.stroke();
+  if(p.stun>0){ ctx.fillStyle='rgba(255,255,255,.4)'; roundRect(-bw/2, bodyTop, bw, bh, r); ctx.fill(); }
+
+  const visY = bodyTop + bh*0.30, visX = dir*bw*0.10, vw = bw*0.66, vh = bh*0.20;
+  ctx.strokeStyle='rgba(28,32,42,.9)'; ctx.lineWidth=3.2; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(-bw*0.5, visY+1.5); ctx.lineTo(bw*0.5, visY-1.5); ctx.stroke(); ctx.lineCap='butt';
+  ctx.fillStyle='#222733'; roundRect(visX-vw/2, visY-vh/2-1.5, vw, vh+3, vh*0.7); ctx.fill();
+  ctx.fillStyle='#7fdcff'; roundRect(visX-vw/2+2, visY-vh/2, vw-4, vh, vh*0.6); ctx.fill();
+  ctx.fillStyle='rgba(18,78,120,.55)'; ctx.beginPath(); ctx.ellipse(visX, visY+vh*0.28, vw*0.42, vh*0.42, 0,0,7); ctx.fill();
+  ctx.strokeStyle='#222733'; ctx.lineWidth=1.6; ctx.beginPath(); ctx.moveTo(visX, visY-vh/2); ctx.lineTo(visX, visY+vh/2); ctx.stroke();
+  ctx.fillStyle='rgba(255,255,255,.92)';
+  ctx.beginPath(); ctx.ellipse(visX-vw*0.22, visY-vh*0.20, vw*0.10, vh*0.30, -0.5,0,7); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(visX+vw*0.18, visY-vh*0.20, vw*0.06, vh*0.22, -0.5,0,7); ctx.fill();
+
+  const my = visY + vh*1.5;
+  if(p.stun>0){ ctx.strokeStyle='rgba(30,20,20,.7)'; ctx.lineWidth=1.6; ctx.lineCap='round';
+    ctx.beginPath(); ctx.arc(visX, my+1.5, 2.6, 1.15*Math.PI, 1.85*Math.PI); ctx.stroke(); ctx.lineCap='butt'; }
+  else { ctx.strokeStyle='rgba(45,28,22,.65)'; ctx.lineWidth=1.5; ctx.lineCap='round';
+    ctx.beginPath(); ctx.arc(visX, my, air?3.4:3, 0.10*Math.PI, 0.90*Math.PI); ctx.stroke(); ctx.lineCap='butt'; }
+}
+/* ===== end copy ===== */
+
+const spd = document.getElementById('spd'), faceBox = document.getElementById('face');
+const S = 4.0;
+function bean(x, y, color, opts){
+  const o = opts||{};
+  const dir = faceBox.checked ? -1 : 1;
+  const p = { color, vx:(o.air||o.idle)?0:5, dash:o.dash||0, stun:o.stun||0 };
+  ctx.save(); ctx.translate(x, y); ctx.scale(S, S);
+  drawRacer(p, !!o.air, PLAYER_W, PLAYER_H, dir);
+  ctx.restore();
+}
+function label(x, y, txt){ ctx.fillStyle='#9fb0cc'; ctx.font='15px Segoe UI'; ctx.textAlign='center'; ctx.fillText(txt, x, y); }
+
+function frame(){
+  raceFrame += parseFloat(spd.value);
+  ctx.clearRect(0,0,cv.width,cv.height);
+  // ground line for the top row
+  const topY = 175, botY = 380;
+  ctx.strokeStyle='rgba(255,255,255,.06)'; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(40, topY+4); ctx.lineTo(960, topY+4); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(40, botY+4); ctx.lineTo(960, botY+4); ctx.stroke();
+
+  ctx.fillStyle='#c8d3e8'; ctx.font='bold 15px Segoe UI'; ctx.textAlign='left';
+  ctx.fillText('THE FOUR RACERS (running)', 40, 70);
+  const xs=[180,400,620,840];
+  COLORS.forEach((c,i)=>{ bean(xs[i], topY, c); label(xs[i], topY+34, NAMES[i]); });
+
+  ctx.fillStyle='#c8d3e8'; ctx.fillText('POSES', 40, 285);
+  bean(180, botY, COLORS[1], {idle:true});            label(180, botY+34, 'idle');
+  bean(400, botY, COLORS[1], {dash:14});              label(400, botY+34, 'running + dash');
+  bean(620, botY, COLORS[1], {air:true});             label(620, botY+34, 'mid-jump');
+  bean(840, botY, COLORS[1], {stun:30});              label(840, botY+34, 'stunned (KO)');
+
+  requestAnimationFrame(frame);
+}
+frame();
+</script>
