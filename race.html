@@ -1134,9 +1134,11 @@ function updatePlayer(p, started){
       // release at the forward peak, on jump, or timeout → leave with tangential velocity
       if((p.swAng*fwd>0.55 && p.swVel*fwd<=0.01) || inp.jump || p.swingT<=0){
         const w=p.swVel, L=p.swLen, th=p.swAng;
-        p.vx = (L*w*Math.cos(th) + fwd*3) * st.speed;   // fling off faster if you bought speed
+        let vxOut = (L*w*Math.cos(th) + fwd*3) * st.speed;   // fling off faster if you bought speed
+        const minV = (p.swEntry||6) * 0.98;                  // never leave the swing slower than you arrived
+        if(Math.abs(vxOut) < minV) vxOut = fwd*minV;
+        p.vx = vxOut;
         p.vy = -L*w*Math.sin(th) - 5;             // pop up off the rope
-        if(Math.abs(p.vx)<6*st.speed) p.vx = fwd*9*st.speed;
         p.swingT=0; p.ladderCd=28;
       }
       if(raceFrame%2===0) trailP(p.x+PLAYER_W/2, p.y+10, '#bfe49a', 2.2);
@@ -1236,7 +1238,10 @@ function updatePlayer(p, started){
     for(const s of slideRamps){ if(cxp>s.x && cxp<s.x+s.w){ ramp=s; break; } }
     if(ramp && !p.finished){
       const surfY = slideSurfaceY(ramp, cxp);
-      if((p.y+PLAYER_H) >= surfY-10 && (p.y+PLAYER_H) < surfY+55 && p.vy>=-2){   // on the chute (not over it, not underground below it)
+      const feet = p.y+PLAYER_H, riding = p.onSlide===ramp;
+      // catch the chute from above, OR — if already riding — stay glued even when you're going so fast the
+      // chute drops away beneath you between frames (so speed never throws you off the slide).
+      if((feet >= surfY-10 && feet < surfY+55 && p.vy>=-2) || (riding && feet < surfY+80)){
         const xc = ramp.x + ramp.w*0.30;
         p.y = surfY - PLAYER_H; p.vy = 0; p.grounded = true; p.onSlide = ramp;
         const fwd = p.facing||1, maxSpd = BASE_SPEED*st.speed*p.speedJitter;
@@ -1303,8 +1308,10 @@ function updatePlayer(p, started){
         if(p.swingT<=0 && p.ladderCd<=0){
           const f=p.facing||1;
           p.swPivX = t.x+t.w/2; p.swPivY = t.y-22; p.swLen = Math.max(70, (t.y+t.h-12)-(t.y-22));
-          p.swAng = -0.7*f; p.swVel = 0.05*f;
-          p.swingT=80; p.fx='SWING!'; p.fxT=18; sfx(p,'spring'); burstP(t.x+t.w/2,t.y+t.h-10,6,'#bfe49a',2.5,14,2.5);
+          p.swAng = -0.55*f;
+          p.swEntry = Math.max(Math.abs(p.vx), BASE_SPEED*st.speed*p.speedJitter);   // remember how fast you came in
+          p.swVel = f * Math.min(0.05 + p.swEntry/(p.swLen*2.5), 0.085);             // carry that momentum into the swing (capped so it stays a swing, not a full loop)
+          p.swingT=60; p.fx='SWING!'; p.fxT=18; sfx(p,'spring'); burstP(t.x+t.w/2,t.y+t.h-10,6,'#bfe49a',2.5,14,2.5);
         }
       } else if(t.type==='conveyor'){
         // moving walkway: shoves you along the floor while you're on it
@@ -1968,8 +1975,8 @@ function drawPlayer(p){
   const w = PLAYER_W / Math.sqrt(stretch), h = PLAYER_H * stretch;
   const dir = p.facing>=0?1:-1;
 
-  // ground shadow
-  if(!air){ ctx.fillStyle='rgba(0,0,0,.18)'; ctx.beginPath(); ctx.ellipse(p.x+PLAYER_W/2, GROUND_Y-2, 16, 5, 0, 0, 7); ctx.fill(); }
+  // ground shadow — only near the surface (not when underground in the tunnel)
+  if(!air && (p.y+PLAYER_H) < GROUND_Y+45){ ctx.fillStyle='rgba(0,0,0,.18)'; ctx.beginPath(); ctx.ellipse(p.x+PLAYER_W/2, GROUND_Y-2, 16, 5, 0, 0, 7); ctx.fill(); }
   // dirt spray while burrowing
   if(p.drill>0){
     ctx.fillStyle='#6e4a2c';
@@ -2126,16 +2133,22 @@ function drawHUD(){
     ctx.fillStyle='#bfe49a'; ctx.font='12px Segoe UI'; ctx.fillText(`+${meC.raceCoins||0} this race`, 96, 81);
   } }
 
-  // scoreboard (top-right) — MP: live race position; SP: points + coins
+  // scoreboard (top-right) — MP: live race position + each racer's gold; SP: points + coins
   const sorted = MP.on ? [...players].sort((a,b)=>(b.x)-(a.x)) : [...players].sort((a,b)=>b.points-a.points);
-  ctx.fillStyle='rgba(10,16,30,.7)'; ctx.fillRect(CW-210,8,190,Math.max(48, players.length*19+12));
+  const sbW = MP.on ? 236 : 190, sbX = CW - sbW - 20;
+  ctx.fillStyle='rgba(10,16,30,.7)'; ctx.fillRect(sbX,8,sbW,Math.max(48, players.length*19+12));
   ctx.font='12px Segoe UI';
   sorted.forEach((p,i)=>{
-    ctx.fillStyle=p.color; ctx.fillRect(CW-202,16+i*19,10,10);
-    ctx.fillStyle = (MP.on? (p.netId===MP.myId) : (p.idx===0))?'#ffd24d':'#fff';
-    ctx.fillText(`${p.name}`, CW-186,25+i*19);
-    if(MP.on){ ctx.fillStyle='#bfe49a'; ctx.fillText(p.finished?'✓ done':(i+1)+(['st','nd','rd'][i]||'th'), CW-66,25+i*19); }
-    else { ctx.fillText(`${p.points}p`, CW-72,25+i*19); ctx.fillStyle='#caa84a'; ctx.fillText(`💰${p.coins}`, CW-48,25+i*19); }
+    const ry = 25+i*19;
+    ctx.fillStyle=p.color; ctx.fillRect(sbX+8,16+i*19,10,10);
+    ctx.fillStyle = isMe(p)?'#ffd24d':'#fff';
+    ctx.fillText(`${p.name}`.slice(0,9), sbX+24, ry);
+    if(MP.on){
+      ctx.fillStyle='#caa84a'; ctx.fillText(`💰${p.coins||0}`, sbX+128, ry);
+      ctx.fillStyle='#bfe49a'; ctx.fillText(p.finished?'✓ done':(i+1)+(['st','nd','rd'][i]||'th'), sbX+186, ry);
+    } else {
+      ctx.fillStyle='#fff'; ctx.fillText(`${p.points}p`, sbX+138, ry); ctx.fillStyle='#caa84a'; ctx.fillText(`💰${p.coins}`, sbX+162, ry);
+    }
   });
 
   // controls hint (bottom-left)
@@ -2463,12 +2476,13 @@ function mpApplyRemote(p){
   p.x += (s.x-p.x)*0.4; p.y += (s.y-p.y)*0.4;
   p.vx=s.vx||0; p.vy=s.vy||0; p.facing=s.f||1; p.grounded=!!s.g; p.stun=s.st||0; p.fx=s.fx||''; p.fxT=s.fxT||0;
   if(s.rc !== undefined) p.raceCoins = s.rc;
+  if(s.co !== undefined) p.coins = s.co;   // remote racer's gold total, for the scoreboard
   if(s.fin && !p.finished){ p.finished=true; p.finishTime=raceFrame; lastFinishOrder.push(p); p.place=lastFinishOrder.length; if(lastFinishOrder.length===1 && firstFinishFrame<0) firstFinishFrame=raceFrame; }
 }
 function mpBroadcast(){
   if(!MP.on||!MP.ref) return; if(raceFrame-MP.lastSend<3) return; MP.lastSend=raceFrame;
   const p=players[MP.mySlot]; if(!p) return;
-  MP.ref.child('live/'+MP.myId).set({ x:Math.round(p.x), y:Math.round(p.y), vx:Math.round(p.vx*10)/10, vy:Math.round(p.vy*10)/10, f:p.facing||1, g:p.grounded?1:0, st:p.stun|0, fx:p.fx||'', fxT:p.fxT|0, fin:p.finished?1:0, rc:Math.round(p.raceCoins||0) });
+  MP.ref.child('live/'+MP.myId).set({ x:Math.round(p.x), y:Math.round(p.y), vx:Math.round(p.vx*10)/10, vy:Math.round(p.vy*10)/10, f:p.facing||1, g:p.grounded?1:0, st:p.stun|0, fx:p.fx||'', fxT:p.fxT|0, fin:p.finished?1:0, rc:Math.round(p.raceCoins||0), co:Math.round(p.coins||0) });
 }
 // MP race wrap-up — award points/coins, then go STRAIGHT to the shop (or final standings on race 4).
 function mpResults(){
