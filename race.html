@@ -260,8 +260,11 @@ const SFX = {
   coin(){ tone(1050,0.05,'square',0.22,1500); tone(1500,0.05,'square',0.18,2000,null,0.04); },   // collect ding
   coinbuy(){ tone(660,0.07,'square',0.3,990); tone(990,0.09,'square',0.28,1320,null,0.06); },     // shop ka-ching
 };
-// play a sound only for the human racer (idx 0) — avoids 4x cacophony
-function sfx(p, name){ if(p.idx===0 && SFX[name]) SFX[name](); }
+// is this player the one THIS client controls? (slot 0 in single-player, your own netId in MP)
+function isMe(p){ return !!p && (MP.on ? p.netId===MP.myId : p.idx===0); }
+// play a sound only for YOUR racer — avoids 4x cacophony, and (crucial in MP) plays for whichever
+// slot you actually are, not just the host. Without this, non-host players heard no sound at all.
+function sfx(p, name){ if(isMe(p) && SFX[name]) SFX[name](); }
 
 //////////////////// MUSIC ////////////////////
 // A relaxed, upbeat loop over a I–V–vi–IV progression (4 bars × 8 eighth-notes = 32 steps):
@@ -1103,7 +1106,7 @@ function updatePlayer(p, started){
       p.y = GROUND_Y - PLAYER_H + 24;     // submerged — only the head pokes out of the dirt
       p.grounded = false;
       if(raceFrame%2===0) spawnP(p.x+PLAYER_W/2-(p.facing||1)*8, GROUND_Y-2, (Math.random()-0.5)*2-(p.facing||1)*1.6, -1-Math.random()*2.6, 22, '#7a5230', 2.6+Math.random()*1.6, 0.24);
-      if(p.idx===0 && raceFrame%5===0) sfx(p,'slidewhoosh');
+      if(isMe(p) && raceFrame%5===0) sfx(p,'slidewhoosh');
     }
     // GRAPPLE ZIP: a sustained up-and-FORWARD pull (mostly horizontal → actually crosses gaps)
     else if(p.grappleT>0){
@@ -1235,7 +1238,7 @@ function updatePlayer(p, started){
         p.y = surfY - PLAYER_H; p.vy = 0; p.grounded = true; p.onSlide = ramp;
         const fwd = p.facing||1, maxSpd = BASE_SPEED*st.speed*p.speedJitter;
         if(cxp > xc){ p.vx = clamp(p.vx + fwd*0.9, -maxSpd*3, maxSpd*3); }   // whoosh downhill
-        if(p.idx===0 && raceFrame%6===0) sfx(p,'slidewhoosh');
+        if(isMe(p) && raceFrame%6===0) sfx(p,'slidewhoosh');
       } else { p.onSlide = null; }
     } else if(p.onSlide){
       // just shot off the bottom of the chute → fast & LOW exit (not a leap into the air)
@@ -1378,10 +1381,12 @@ function updatePlayer(p, started){
   // collect coins — FIRST racer to a coin takes it; it then vanishes for everyone (compete!)
   if(!p.finished && coins.length){
     const reach = 13 + (p.coinMag||0)*0.5, cx2=p.x+PLAYER_W/2, cy2=p.y+PLAYER_H/2;
-    for(const c of coins){
+    for(let ci=0; ci<coins.length; ci++){ const c=coins[ci];
       if(c.got) continue;
       const dx=cx2-c.x, dy=cy2-c.y, rr=c.r+reach;
-      if(dx*dx+dy*dy < rr*rr){ const g=(p.stats.flags.coinx2)?2:1; c.got=true; p.coins+=g; p.raceCoins+=g; burstP(c.x,c.y,7,p.color,3,16,2.6); if(p.idx===0) sfx(p,'coin'); }
+      if(dx*dx+dy*dy < rr*rr){ const g=(p.stats.flags.coinx2)?2:1; c.got=true; p.coins+=g; p.raceCoins+=g; burstP(c.x,c.y,7,p.color,3,16,2.6);
+        if(isMe(p)){ sfx(p,'coin'); if(MP.on&&MP.ref) MP.ref.child('cg/'+raceNum+'/'+ci).set(true); }   // tell the room this coin is gone
+      }
     }
   }
 
@@ -2067,12 +2072,12 @@ function drawPlayer(p){
     ctx.fillStyle='rgba(123,224,255,.1)'; ctx.beginPath(); ctx.arc(mx, p.y+PLAYER_H/2, 27, 0, 7); ctx.fill();
   }
   // name tag
-  ctx.fillStyle = p.idx===0 ? '#ffd24d' : 'rgba(255,255,255,.85)'; ctx.textAlign='center'; ctx.font='bold 11px Segoe UI';
+  ctx.fillStyle = isMe(p) ? '#ffd24d' : 'rgba(255,255,255,.85)'; ctx.textAlign='center'; ctx.font='bold 11px Segoe UI';
   ctx.fillText(p.name, mx, headTop-13); ctx.textAlign='left';
   // ability/feedback popup text
   if(p.fxT>0 && p.fx){
     ctx.globalAlpha = Math.min(1, p.fxT/12);
-    ctx.fillStyle = p.idx===0 ? '#ffd24d' : '#fff';
+    ctx.fillStyle = isMe(p) ? '#ffd24d' : '#fff';
     ctx.font='bold 14px Segoe UI';
     ctx.fillText(p.fx, p.x-4, p.y-22 - (26-p.fxT)*0.8);
     ctx.globalAlpha=1;
@@ -2191,7 +2196,7 @@ function showResults(mult){
   $('resultSub').textContent = mult>1 ? '★ Final race — points were DOUBLED!' : 'Points: 4 / 3 / 2 / 1';
   const tbl=$('resultTable'); tbl.innerHTML='';
   lastFinishOrder.forEach((p,i)=>{
-    const tr=document.createElement('tr'); if(p.idx===0) tr.className='you';
+    const tr=document.createElement('tr'); if(isMe(p)) tr.className='you';
     tr.innerHTML=`<td>${['🥇','🥈','🥉','4th'][i]}</td>
       <td><span class="swatch" style="background:${p.color}"></span>${p.name}</td>
       <td>+${p.gained}p</td><td><b>${p.points}</b>p</td><td style="color:#ffd24d">+💰${(p.coinGained||0)+(p.raceCoins||0)}</td>`;
@@ -2290,13 +2295,13 @@ function showFinal(){
   const sorted=[...players].sort((a,b)=>b.points-a.points);
   const tbl=$('finalTable'); tbl.innerHTML='';
   sorted.forEach((p,i)=>{
-    const tr=document.createElement('tr'); if(p.idx===0) tr.className='you';
+    const tr=document.createElement('tr'); if(isMe(p)) tr.className='you';
     tr.innerHTML=`<td>${['🥇','🥈','🥉','4th'][i]}</td>
       <td><span class="swatch" style="background:${p.color}"></span>${p.name}</td>
       <td><b>${p.points}</b> pts</td><td style="color:#caa84a">💰${p.coins}</td>`;
     tbl.appendChild(tr);
   });
-  const meRank = sorted.findIndex(p=>p.idx===0)+1;
+  const meRank = sorted.findIndex(p=>isMe(p))+1;
   if(meRank===1) SFX.win(); else SFX.finish();
   $('finalTitle').textContent = meRank===1 ? '🏆 You win the tournament!' : `Tournament over — you placed ${['1st','2nd','3rd','4th'][meRank-1]}`;
   $('finalFlavor').innerHTML = `The final track ended up themed like this:<br><br>`+
@@ -2341,7 +2346,14 @@ window.addEventListener('keyup',e=>{ keys[e.key]=false; });
 // with real physics and broadcast its position ~20×/sec; other racers are drawn by
 // playing back their broadcasts. Casual client-authoritative netcode — perfect for friends.
 const MP = { on:false, db:null, myId:null, mySlot:0, isHost:false, hostId:null, code:null, ref:null,
-  order:[], data:{}, remote:{}, seed:1, lastSend:0, wfxReady:false };
+  order:[], data:{}, remote:{}, seed:1, lastSend:0, wfxReady:false, cg:{} };
+// mark coins that other racers have already grabbed (synced via the room's `cg` node), so a coin
+// vanishes for EVERYONE the instant any one player takes it. Namespaced by raceNum so old races don't bleed.
+function applyCoinsGot(){
+  if(!MP.on || !coins || !coins.length) return;
+  const m = (MP.cg && MP.cg[raceNum]) || {};
+  for(const k in m){ const i=+k; if(coins[i]) coins[i].got=true; }
+}
 function lobbyStatus(t){ const e=$('lobbyStatus'); if(e) e.textContent=t; }
 function myName(){ return (($('nameInput').value||'').trim().slice(0,10))||'Player'; }
 function randCode(){ let c=''; const A='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; for(let i=0;i<4;i++) c+=A[Math.floor(Math.random()*A.length)]; return c; }
@@ -2374,6 +2386,10 @@ function mpEnterRoom(code, host){
   MP.ref.child('players').on('value', s=> onPlayers(s.val()||{}) );
   MP.ref.child('state').on('value', s=> { if(s.val()==='race') mpStartRace(); else if(s.val()==='lobby' && state==='lobby') setState('lobby'); else if(s.val()==='done'&&state==='race') mpResults(); else if(s.val()==='shop'&&!MP.isHost) { showShop(); } });
   MP.ref.child('seed').on('value', s=>{ if(s.val()) MP.seed=s.val(); });
+  // which race of the series we're on — host owns it; everyone mirrors it so scoring + series-end agree
+  MP.ref.child('raceNum').on('value', s=>{ if(s.val()!=null) raceNum=s.val(); });
+  // coins grabbed by anyone, so they vanish for all (fires before mpStartRace's seed/state, so coins exist by race time)
+  MP.ref.child('cg').on('value', s=>{ MP.cg=s.val()||{}; applyCoinsGot(); });
   MP.ref.child('live').on('value', s=>{ MP.remote=s.val()||{}; });
   // weapon events. Firebase fires the initial child_added batch BEFORE the first 'value',
   // so we flip wfxReady on that 'value' to skip replaying stale events present when we joined.
@@ -2401,8 +2417,8 @@ function renderLobby(){
     : (MP.isHost ? (allReady?'Everyone\'s ready — hit START!':'Waiting for everyone to ready up…') : 'Waiting for the host to start…');
 }
 function mpToggleReady(){ const cur=MP.data[MP.myId]&&MP.data[MP.myId].ready; MP.ref.child('players/'+MP.myId+'/ready').set(!cur); }
-function mpHostStart(){ if(MP.isHost) MP.ref.update({ seed:Math.floor(Math.random()*1e9)+1, state:'race' }); }
-function mpShopDone(){ if(MP.isHost){ raceNum++; const seed=Math.floor(Math.random()*1e9)+1; MP.ref.child('state').set(null).then(()=>MP.ref.update({ seed, state:'race' })); } }
+function mpHostStart(){ if(MP.isHost){ raceNum=0; MP.ref.child('cg').remove(); MP.ref.update({ seed:Math.floor(Math.random()*1e9)+1, state:'race', raceNum:0 }); } }
+function mpShopDone(){ if(MP.isHost){ raceNum++; const seed=Math.floor(Math.random()*1e9)+1; const rn=raceNum; MP.ref.child('state').set(null).then(()=>MP.ref.update({ seed, state:'race', raceNum:rn })); } }
 function localP(){ return MP.on ? (players[MP.mySlot]||players[0]) : players[0]; }
 
 // build the shared track + the players array, and start a synced race
@@ -2413,10 +2429,13 @@ function mpStartRace(){
   if(MP.order.length===0 || !MP.order.includes(MP.myId)){ MP.order = Object.keys(MP.data||{}).sort((a,b)=>((MP.data[a]||{}).t||0)-((MP.data[b]||{}).t||0)).slice(0,4); }
   RNG = mulberry32(MP.seed);
   sections = new Array(NUM_SECTIONS); for(let i=0;i<NUM_SECTIONS;i++) setTheme(i,'playground');
-  players = MP.order.map((id,i)=>{ const p=newPlayer(i); p.netId=id; p.name=(MP.data[id]&&MP.data[id].name)||('P'+(i+1)); p.color=COLORS[i%4]; const prev=players.find(p2=>p2.netId===id); p.build=prev?prev.build:freshBuild(); p.coins=prev?prev.coins:0; p.bought=prev?prev.bought:{}; p.bonus=prev?{speed:prev.bonus.speed||1,jump:prev.bonus.jump||1,gravity:prev.bonus.gravity||1}:{speed:1,jump:1,gravity:1}; return p; });
+  players = MP.order.map((id,i)=>{ const p=newPlayer(i); p.netId=id; p.name=(MP.data[id]&&MP.data[id].name)||('P'+(i+1)); p.color=COLORS[i%4]; const prev=players.find(p2=>p2.netId===id); p.build=prev?prev.build:freshBuild(); p.coins=prev?prev.coins:0; p.bought=prev?prev.bought:{}; p.coinMag=prev?(prev.coinMag||0):0; p.owned=prev?prev.owned:new Set(); p.bonus=prev?{speed:prev.bonus.speed||1,jump:prev.bonus.jump||1,gravity:prev.bonus.gravity||1}:{speed:1,jump:1,gravity:1}; return p; });
   lastFinishOrder=[];
   RNG = mulberry32(MP.seed); rebuildTrackObjects(); buildCoins(); RNG = Math.random;
-  players.forEach((p,i)=>{ p.stats=computeStats(p.build); p.x=60+i*8; p.y=GROUND_Y-PLAYER_H; p.vx=0; p.vy=0; p.grounded=true; p.facing=1; p.finished=false; p.place=0; p.speedJitter=1.0; });
+  players.forEach((p,i)=>{ p.stats=computeStats(p.build);
+    p.stats.speed *= p.bonus.speed; p.stats.jump *= p.bonus.jump; p.stats.gravity *= p.bonus.gravity;   // apply shop boosts (was missing in MP)
+    p.x=60+i*8; p.y=GROUND_Y-PLAYER_H; p.vx=0; p.vy=0; p.grounded=true; p.facing=1; p.finished=false; p.place=0; p.speedJitter=1.0; });
+  applyCoinsGot();   // re-apply any coins already grabbed this race (covers reconnects)
   particles=[]; dropped=[]; shots=[]; netShots=[];
   raceFrame=0; MP.lastSend=0; countdown=180; started=false; cameraX=0; cameraY=0; lastCountShown=-1; firstFinishFrame=-1;
   // drop stale race-1 finish positions so remote racers don't render frozen at the old finish line
@@ -2440,6 +2459,7 @@ function mpBroadcast(){
 // MP results screen — awards coins + shows shop between races (4-race series)
 function mpResults(){
   if(state!=='race') return;
+  stopMusic();   // covers the case where the race ended via another client's 'done' signal (not our own raceTick)
   const leftOver=players.filter(p=>!p.finished).sort((a,b)=>b.x-a.x);
   for(const p of leftOver){ p.finished=true; lastFinishOrder.push(p); p.place=lastFinishOrder.length; }
   const ptsTable = [4,3,2,1];
