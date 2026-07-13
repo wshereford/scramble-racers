@@ -3,9 +3,14 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Scramble Racers — Prototype</title>
+<title>Scramble Racers — Single Player</title>
+<script src="shared.js"></script>
 <style>
   * { box-sizing: border-box; }
+  .menubtn { position: fixed; top: 10px; left: 12px; z-index: 50; text-decoration: none;
+    background: rgba(10,16,30,.72); color: #cfe0ff; font-weight: 700; font-size: 13px;
+    padding: 7px 13px; border-radius: 10px; border: 1px solid rgba(255,255,255,.12); cursor: pointer; }
+  .menubtn:hover { background: rgba(20,30,52,.9); }
   html, body {
     margin: 0; padding: 0; height: 100%;
     background: #0e1320;
@@ -76,6 +81,7 @@
 </style>
 </head>
 <body>
+<a href="index.html" class="menubtn">← Menu</a>
 <div id="wrap">
   <h1>💰 COIN RUSH <span style="font-size:13px;color:#8595b0;">— scramble racers</span></h1>
   <canvas id="game" width="960" height="540"></canvas>
@@ -161,6 +167,7 @@ function initAudio(){
     actx = new (window.AudioContext||window.webkitAudioContext)();
     masterGain = actx.createGain(); masterGain.gain.value = 0.30;
     masterGain.connect(actx.destination);
+    if(window.SR){ const st=SR.settings(); soundOn = st.sfx || st.music; masterGain.gain.value = 0.30 * st.master; }
   }catch(e){ actx=null; }
 }
 function resumeAudio(){ if(actx && actx.state==='suspended') actx.resume(); }
@@ -527,7 +534,7 @@ const canvas = $('game'), ctx = canvas.getContext('2d');
 
 function newPlayer(i){
   return {
-    idx:i, name:NAMES[i], color:COLORS[i],
+    idx:i, name:NAMES[i], color:(i===0 && window.SR) ? SR.cosmetics().color : COLORS[i],
     build:freshBuild(), stats:null, points:0,
     coins:0, bonus:{speed:1,jump:1,gravity:1}, owned:new Set(), bought:{}, coinMag:0, raceCoins:0,
     x:60 + i*6, y:GROUND_Y-PLAYER_H, vx:0, vy:0,
@@ -2064,6 +2071,11 @@ function drawPlayer(p){
     ctx.fillText(hi, mx, headTop + 11);
     ctx.restore();
   }
+  // your equipped COSMETIC hat (local player only) — sits just above the head
+  if(p.idx===0 && window.SR){ const ci=SR.hatIcon(); if(ci){
+    ctx.save(); ctx.textAlign='center'; ctx.font='17px Segoe UI Emoji';
+    ctx.fillText(ci, mx, headTop + (hi?-6:9)); ctx.restore();
+  } }
   // the rest of the build WORN on the racer: ability held in hand, shoes on the feet
   // (helmet's already on the head). Hidden while burrowing. (No more "holding your gravity".)
   if(p.build && p.build.ability && p.drill<=0){
@@ -2334,8 +2346,13 @@ function showFinal(){
   });
   const meRank = sorted.findIndex(p=>p.idx===0)+1;
   if(meRank===1) SFX.win(); else SFX.finish();
+  // bank the coins you finished the tournament with into your account (for cosmetics)
+  const me = players.find(p=>p.idx===0); const earned = Math.max(0, me.coins|0);
+  if(window.SR && earned>0) SR.addCoins(earned);
   $('finalTitle').textContent = meRank===1 ? '🏆 You win the tournament!' : `Tournament over — you placed ${['1st','2nd','3rd','4th'][meRank-1]}`;
-  $('finalFlavor').innerHTML = `The final track ended up themed like this:<br><br>`+
+  $('finalFlavor').innerHTML =
+    (window.SR && earned>0 ? `<div style="color:#ffd24d;font-weight:700;margin-bottom:10px">💰 +${earned} coins added to your account (spend them on cosmetics!)</div>` : '')+
+    `The final track ended up themed like this:<br><br>`+
     sections.map((s,i)=>`<b>S${i+1}:</b> ${secTheme(i).icon} ${secTheme(i).name}`).join('<br>');
   setState('final');
 }

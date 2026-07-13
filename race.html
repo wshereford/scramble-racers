@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Scramble Racers — Online Multiplayer</title>
+<script src="shared.js"></script>
 <!-- Firebase (Realtime Database) — powers the live lobby + player sync -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
@@ -93,6 +94,7 @@ var firebaseConfig = {
 </style>
 </head>
 <body>
+<a href="index.html" style="position:fixed;top:10px;left:12px;z-index:50;text-decoration:none;background:rgba(10,16,30,.72);color:#cfe0ff;font-weight:700;font-size:13px;padding:7px 13px;border-radius:10px;border:1px solid rgba(255,255,255,.12)">← Menu</a>
 <div id="wrap">
   <h1>🏁 SCRAMBLE RACERS <span style="font-size:13px;color:#8595b0;">— online multiplayer</span></h1>
   <canvas id="game" width="960" height="540"></canvas>
@@ -201,6 +203,7 @@ function initAudio(){
   try{
     actx = new (window.AudioContext||window.webkitAudioContext)();
     masterGain = actx.createGain(); masterGain.gain.value = 0.30;
+    if(window.SR){ const st=SR.settings(); soundOn = st.sfx || st.music; masterGain.gain.value = 0.30 * st.master; }
     masterGain.connect(actx.destination);
   }catch(e){ actx=null; }
 }
@@ -2187,6 +2190,11 @@ function drawPlayer(p){
     ctx.fillText(hi, mx, headTop + 11);
     ctx.restore();
   }
+  // equipped COSMETIC hat (each racer wears their own, broadcast in their player record)
+  if(p.hat && p.hat!=='none' && window.SR){ const ci=SR.hatIcon(p.hat); if(ci){
+    ctx.save(); ctx.textAlign='center'; ctx.font='17px Segoe UI Emoji';
+    ctx.fillText(ci, mx, headTop + (hi?-6:9)); ctx.restore();
+  } }
   // the rest of the build WORN on the racer: ability held in hand, shoes on the feet
   // (helmet's already on the head). Hidden while burrowing. (No more "holding your gravity".)
   if(p.build && p.build.ability && p.drill<=0){
@@ -2466,8 +2474,13 @@ function showFinal(){
   });
   const meRank = sorted.findIndex(p=>isMe(p))+1;
   if(meRank===1) SFX.win(); else SFX.finish();
+  // bank your coins into your account (for cosmetics)
+  const me = players.find(p=>isMe(p)); const earned = me ? Math.max(0, me.coins|0) : 0;
+  if(window.SR && earned>0) SR.addCoins(earned);
   $('finalTitle').textContent = meRank===1 ? '🏆 You win the tournament!' : `Tournament over — you placed ${['1st','2nd','3rd','4th'][meRank-1]}`;
-  $('finalFlavor').innerHTML = `The final track ended up themed like this:<br><br>`+
+  $('finalFlavor').innerHTML =
+    (window.SR && earned>0 ? `<div style="color:#ffd24d;font-weight:700;margin-bottom:10px">💰 +${earned} coins added to your account</div>` : '')+
+    `The final track ended up themed like this:<br><br>`+
     sections.map((s,i)=>`<b>S${i+1}:</b> ${secTheme(i).icon} ${secTheme(i).name}`).join('<br>');
   setState('final');
 }
@@ -2562,7 +2575,8 @@ function mpEnterRoom(code, host){
   MP.on=true; MP.code=code; MP.isHost=host; MP.ref=MP.db.ref('rooms/'+code); raceNum=0;
   if(host) MP.ref.update({ exists:true, state:'lobby', seed:0 });
   const pref = MP.ref.child('players').push(); MP.myId=pref.key;
-  pref.set({ name:myName(), ready:false, t:firebase.database.ServerValue.TIMESTAMP });
+  pref.set({ name:myName(), ready:false, t:firebase.database.ServerValue.TIMESTAMP,
+    color:(window.SR?SR.cosmetics().color:COLORS[0]), hat:(window.SR?SR.cosmetics().hat:'none') });
   pref.onDisconnect().remove(); MP.ref.child('live/'+MP.myId).onDisconnect().remove();
   if(host) MP.ref.child('host').set(MP.myId);
   MP.ref.child('host').on('value', s=>{ MP.hostId=s.val(); MP.isHost=(s.val()===MP.myId); renderLobby(); });
@@ -2616,7 +2630,7 @@ function mpStartRace(){
   if(MP.order.length===0 || !MP.order.includes(MP.myId)){ MP.order = Object.keys(MP.data||{}).sort((a,b)=>((MP.data[a]||{}).t||0)-((MP.data[b]||{}).t||0)).slice(0,4); }
   RNG = mulberry32(MP.seed);
   sections = new Array(NUM_SECTIONS); for(let i=0;i<NUM_SECTIONS;i++) setTheme(i,'playground');
-  players = MP.order.map((id,i)=>{ const p=newPlayer(i); p.netId=id; p.name=(MP.data[id]&&MP.data[id].name)||('P'+(i+1)); p.color=COLORS[i%4]; const prev=players.find(p2=>p2.netId===id); p.build=prev?prev.build:freshBuild(); p.coins=prev?prev.coins:0; p.points=prev?(prev.points||0):0; p.bought=prev?prev.bought:{}; p.coinMag=prev?(prev.coinMag||0):0; p.owned=prev?prev.owned:new Set(); p.bonus=prev?{speed:prev.bonus.speed||1,jump:prev.bonus.jump||1,gravity:prev.bonus.gravity||1}:{speed:1,jump:1,gravity:1}; return p; });
+  players = MP.order.map((id,i)=>{ const p=newPlayer(i); p.netId=id; p.name=(MP.data[id]&&MP.data[id].name)||('P'+(i+1)); p.color=(MP.data[id]&&MP.data[id].color)||COLORS[i%4]; p.hat=(MP.data[id]&&MP.data[id].hat)||'none'; const prev=players.find(p2=>p2.netId===id); p.build=prev?prev.build:freshBuild(); p.coins=prev?prev.coins:0; p.points=prev?(prev.points||0):0; p.bought=prev?prev.bought:{}; p.coinMag=prev?(prev.coinMag||0):0; p.owned=prev?prev.owned:new Set(); p.bonus=prev?{speed:prev.bonus.speed||1,jump:prev.bonus.jump||1,gravity:prev.bonus.gravity||1}:{speed:1,jump:1,gravity:1}; return p; });
   lastFinishOrder=[];
   RNG = mulberry32(MP.seed); rebuildTrackObjects(); buildCoins(); RNG = Math.random;
   players.forEach((p,i)=>{ p.stats=computeStats(p.build);
