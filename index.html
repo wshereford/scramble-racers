@@ -2,84 +2,305 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
 <title>Scramble Racers</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root { --gold:#ffd24d; --ink:#0e1320; --panel:#182238; }
+  html, body { height: 100%; overflow: hidden; }
   body {
-    background: #0e1320;
-    color: #e8edf5;
+    background: #0e1320; color: #e8edf5;
     font-family: "Segoe UI", system-ui, sans-serif;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 100vh;
-    text-align: center;
-    padding: 2rem;
+    user-select: none; -webkit-user-select: none;
   }
+  #bg { position: fixed; inset: 0; width: 100%; height: 100%; display: block; z-index: 0; }
+  #app { position: fixed; inset: 0; z-index: 1; display: flex; align-items: center; justify-content: center; }
+  .screen { width: min(920px, 94vw); max-height: 94vh; overflow-y: auto; text-align: center; padding: 12px; }
+  .screen.hidden { display: none; }
+
   h1 {
-    font-size: 3rem;
-    font-weight: 900;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    margin-bottom: 0.5rem;
+    font-size: clamp(2.4rem, 7vw, 4.2rem); font-weight: 900; letter-spacing: 2px;
+    text-transform: uppercase; line-height: 1;
+    text-shadow: 0 4px 0 #b5851f, 0 6px 18px rgba(0,0,0,.5);
+    color: var(--gold);
   }
-  .subtitle {
-    color: #8899bb;
-    font-size: 1.1rem;
-    margin-bottom: 3rem;
+  h1 .sub2 { display:block; font-size: .28em; letter-spacing: 6px; color:#bcd0ee; text-shadow:none; margin-top:.4em; font-weight:700; }
+  h2 { font-size: 1.7rem; font-weight: 800; margin-bottom: 14px; letter-spacing: 1px; }
+
+  .coins {
+    display: inline-flex; align-items: center; gap: 6px; margin: 14px 0 22px;
+    background: rgba(10,16,30,.6); padding: 6px 16px; border-radius: 99px;
+    font-weight: 800; font-size: 1.1rem; color: var(--gold);
+    border: 1px solid rgba(255,255,255,.08);
   }
-  .buttons {
-    display: flex;
-    gap: 1.5rem;
-    flex-wrap: wrap;
-    justify-content: center;
-  }
+  .menu { display: flex; flex-direction: column; gap: 14px; align-items: center; }
   .btn {
-    display: block;
-    padding: 1.2rem 2.5rem;
-    border-radius: 12px;
-    font-size: 1.1rem;
-    font-weight: 700;
-    text-decoration: none;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    transition: transform 0.1s, opacity 0.1s;
+    width: 320px; max-width: 82vw; padding: 15px 22px; border: none; border-radius: 14px;
+    font-size: 1.15rem; font-weight: 800; letter-spacing: 1px; text-transform: uppercase;
+    cursor: pointer; transition: transform .08s, filter .08s, background .1s;
+    color: #0e1320; background: var(--gold);
+    box-shadow: 0 5px 0 #b5851f, 0 8px 18px rgba(0,0,0,.35);
   }
-  .btn:hover { transform: scale(1.04); opacity: 0.9; }
-  .btn-mp {
-    background: #f5c518;
-    color: #0e1320;
+  .btn:hover { transform: translateY(-2px); filter: brightness(1.05); }
+  .btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #b5851f; }
+  .btn.alt { background: #2a3a5a; color: #e8edf5; box-shadow: 0 5px 0 #16233c, 0 8px 18px rgba(0,0,0,.35); }
+  .btn.small { width: auto; padding: 11px 20px; font-size: 1rem; }
+  .btn.ghost { background: transparent; color:#9fb0c8; box-shadow:none; border:1px solid rgba(255,255,255,.14); }
+
+  .panel { background: rgba(16,24,40,.9); border: 1px solid rgba(255,255,255,.08);
+           border-radius: 18px; padding: 22px; box-shadow: 0 18px 50px rgba(0,0,0,.5); }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 16px;
+         padding: 13px 6px; border-bottom: 1px solid rgba(255,255,255,.07); }
+  .row:last-child { border-bottom: none; }
+  .row label { font-weight: 700; font-size: 1.05rem; }
+  .row .hint { color:#8595b0; font-size:.82rem; font-weight:400; display:block; }
+  input[type=range] { width: 220px; accent-color: var(--gold); }
+  .toggle { width: 58px; height: 32px; border-radius: 99px; background:#33405c; position: relative; cursor: pointer; transition: background .12s; border:none; }
+  .toggle.on { background:#4caf6a; }
+  .toggle::after { content:''; position:absolute; top:3px; left:3px; width:26px; height:26px; border-radius:50%; background:#fff; transition:left .12s; }
+  .toggle.on::after { left:29px; }
+
+  /* cosmetics */
+  .cos-wrap { display:flex; gap:22px; align-items:flex-start; flex-wrap:wrap; justify-content:center; }
+  #cosPreview { background:linear-gradient(#bfe9ff,#eafaff); border-radius:16px; border:1px solid rgba(0,0,0,.1); }
+  .cos-cols { flex:1; min-width:300px; text-align:left; }
+  .grid-title { font-size:.8rem; text-transform:uppercase; letter-spacing:1px; color:#7fd1ff; font-weight:700; margin:6px 0; }
+  .grid { display:flex; flex-wrap:wrap; gap:9px; margin-bottom:12px; }
+  .swatch, .hatpick {
+    width:52px; height:52px; border-radius:12px; cursor:pointer; position:relative;
+    border:3px solid transparent; display:flex; align-items:center; justify-content:center; font-size:24px;
+    background:#223; transition:transform .08s;
   }
-  .btn-sp {
-    background: #2a3a5a;
-    color: #e8edf5;
-    border: 2px solid #3a4a6a;
-  }
-  .tag {
-    display: inline-block;
-    background: #1c2940;
-    color: #8899bb;
-    font-size: 0.75rem;
-    padding: 0.2rem 0.6rem;
-    border-radius: 99px;
-    margin-top: 0.4rem;
-  }
+  .swatch:hover, .hatpick:hover { transform:translateY(-2px); }
+  .swatch.sel, .hatpick.sel { border-color:#fff; }
+  .locked::after { content:'🔒'; position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+                   background:rgba(0,0,0,.5); border-radius:9px; font-size:16px; }
+  .price { position:absolute; bottom:-16px; left:0; right:0; font-size:.66rem; color:var(--gold); text-align:center; }
+  .cell { position:relative; margin-bottom:16px; }
+
+  .back { margin-top: 20px; }
+  .credit { position: fixed; bottom: 8px; right: 12px; z-index:1; color:#5a6a86; font-size:.72rem; }
 </style>
 </head>
 <body>
-  <h1>&#x2638; Scramble Racers</h1>
-  <p class="subtitle">2D platformer racing &mdash; collect coins, buy upgrades, race your friends!</p>
-  <div class="buttons">
-    <a href="/race.html" class="btn btn-mp">
-      &#x1F4BB; Play Online &mdash; Multiplayer
-      <br><span class="tag">Up to 4 players &bull; Firebase live sync</span>
-    </a>
-    <a href="/coins.html" class="btn btn-sp">
-      &#x1F3AE; Single Player
-      <br><span class="tag">Play solo vs CPUs</span>
-    </a>
+  <canvas id="bg"></canvas>
+  <div id="app">
+
+    <!-- ===== MAIN MENU ===== -->
+    <div id="scr-main" class="screen">
+      <h1>Scramble Racers<span class="sub2">race · scramble · repeat</span></h1>
+      <div class="coins">💰 <span id="coinBal">0</span></div>
+      <div class="menu">
+        <button class="btn" data-act="sp">▶ Single Player</button>
+        <button class="btn alt" data-act="mp">🌐 Multiplayer</button>
+        <button class="btn alt" data-act="cos">🎨 Cosmetics</button>
+        <button class="btn alt" data-act="set">⚙ Settings</button>
+        <button class="btn ghost small" data-act="quit" id="quitBtn">✕ Quit</button>
+      </div>
+    </div>
+
+    <!-- ===== SETTINGS ===== -->
+    <div id="scr-set" class="screen hidden">
+      <h2>⚙ Settings</h2>
+      <div class="panel" style="max-width:520px;margin:0 auto;text-align:left">
+        <div class="row">
+          <label>Master Volume <span class="hint">overall loudness</span></label>
+          <input type="range" id="setMaster" min="0" max="100" />
+        </div>
+        <div class="row">
+          <label>Music</label>
+          <button class="toggle" id="setMusic" aria-label="toggle music"></button>
+        </div>
+        <div class="row">
+          <label>Sound Effects</label>
+          <button class="toggle" id="setSfx" aria-label="toggle sfx"></button>
+        </div>
+        <div class="row">
+          <label>Fullscreen <span class="hint">F11 also works</span></label>
+          <button class="toggle" id="setFull" aria-label="toggle fullscreen"></button>
+        </div>
+        <div class="row">
+          <label>Reset progress <span class="hint">clears coins, cosmetics & settings</span></label>
+          <button class="btn ghost small" id="setReset">Reset</button>
+        </div>
+      </div>
+      <div class="back"><button class="btn small" data-act="menu">← Back</button></div>
+    </div>
+
+    <!-- ===== COSMETICS ===== -->
+    <div id="scr-cos" class="screen hidden">
+      <h2>🎨 Cosmetics <span style="font-size:1rem;color:var(--gold)">💰 <span id="coinBal2">0</span></span></h2>
+      <div class="panel">
+        <div class="cos-wrap">
+          <canvas id="cosPreview" width="220" height="240"></canvas>
+          <div class="cos-cols">
+            <div class="grid-title">Body colour</div>
+            <div class="grid" id="colorGrid"></div>
+            <div class="grid-title">Hat</div>
+            <div class="grid" id="hatGrid"></div>
+            <div class="hint" style="color:#8595b0;font-size:.82rem">Locked items 🔒 cost coins you earn by racing. Click to buy, click again to equip.</div>
+          </div>
+        </div>
+      </div>
+      <div class="back"><button class="btn small" data-act="menu">← Back</button></div>
+    </div>
+
   </div>
+  <div class="credit">v0.1 · shell</div>
+
+  <script src="shared.js"></script>
+  <script>
+  const $ = id => document.getElementById(id);
+
+  /* ---------------- animated backdrop + character drawing ---------------- */
+  const bg = $('bg'), bx = bg.getContext('2d');
+  function fit(){ bg.width = innerWidth; bg.height = innerHeight; }
+  addEventListener('resize', fit); fit();
+  let t = 0;
+
+  // a rounded "bean" racer with the player's cosmetic colour + hat (matches the in-game style)
+  function drawBean(ctx, cx, footY, s, color, hatId){
+    const w = 42*s, h = 56*s, x = cx - w/2, y = footY - h, bob = Math.sin(t*0.05)*3*s;
+    ctx.save(); ctx.translate(0, bob);
+    // shadow
+    ctx.fillStyle='rgba(0,0,0,.15)'; ctx.beginPath(); ctx.ellipse(cx, footY+2, w*0.42, 5*s, 0,0,7); ctx.fill();
+    // feet
+    ctx.fillStyle='#2a2a2a'; ctx.beginPath();
+    ctx.ellipse(cx-9*s, footY-2*s, 7*s,4.5*s,0,0,7); ctx.ellipse(cx+9*s, footY-2*s, 7*s,4.5*s,0,0,7); ctx.fill();
+    // body
+    ctx.fillStyle=color;
+    ctx.beginPath(); ctx.moveTo(x, y+h*0.5); ctx.quadraticCurveTo(x, y, cx, y); ctx.quadraticCurveTo(x+w, y, x+w, y+h*0.5);
+    ctx.quadraticCurveTo(x+w, y+h, cx, y+h); ctx.quadraticCurveTo(x, y+h, x, y+h*0.5); ctx.closePath(); ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,.2)'; ctx.beginPath(); ctx.ellipse(cx-w*0.16, y+h*0.32, w*0.26, h*0.2, -0.3,0,7); ctx.fill();
+    // eyes
+    const eyY = y+h*0.42;
+    ctx.fillStyle='rgba(255,130,160,.5)'; ctx.beginPath(); ctx.ellipse(cx-11*s,eyY+7*s,5*s,3*s,0,0,7); ctx.ellipse(cx+11*s,eyY+7*s,5*s,3*s,0,0,7); ctx.fill();
+    ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(cx-6*s,eyY,6*s,0,7); ctx.arc(cx+6*s,eyY,6*s,0,7); ctx.fill();
+    ctx.fillStyle='#111'; ctx.beginPath(); ctx.arc(cx-6*s,eyY+s,3*s,0,7); ctx.arc(cx+6*s,eyY+s,3*s,0,7); ctx.fill();
+    ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(cx-7*s,eyY-1*s,1.3*s,0,7); ctx.arc(cx+5*s,eyY-1*s,1.3*s,0,7); ctx.fill();
+    // smile
+    ctx.strokeStyle='rgba(70,35,15,.6)'; ctx.lineWidth=1.6*s; ctx.lineCap='round';
+    ctx.beginPath(); ctx.arc(cx, eyY+8*s, 5*s, 0.15*Math.PI, 0.85*Math.PI); ctx.stroke(); ctx.lineCap='butt';
+    // hat
+    const icon = SR.hatIcon(hatId);
+    if(icon){ ctx.font = (26*s)+'px Segoe UI Emoji'; ctx.textAlign='center'; ctx.fillText(icon, cx, y+6*s); ctx.textAlign='left'; }
+    ctx.restore();
+  }
+
+  function cloud(ctx,x,y,s){ ctx.fillStyle='rgba(255,255,255,.92)'; ctx.beginPath();
+    ctx.arc(x,y,18*s,0,7); ctx.arc(x+22*s,y+5*s,24*s,0,7); ctx.arc(x+48*s,y,16*s,0,7); ctx.arc(x+24*s,y-12*s,18*s,0,7); ctx.closePath(); ctx.fill(); }
+
+  function backdrop(){
+    const W=bg.width, H=bg.height;
+    const g = bx.createLinearGradient(0,0,0,H); g.addColorStop(0,'#8fd6ff'); g.addColorStop(.6,'#bfe9ff'); g.addColorStop(1,'#eafaff');
+    bx.fillStyle=g; bx.fillRect(0,0,W,H);
+    bx.fillStyle='rgba(255,241,150,.9)'; bx.beginPath(); bx.arc(W*0.84,H*0.16,44,0,7); bx.fill();
+    for(let i=0;i<5;i++){ const cx=((i*360 + t*0.4) % (W+260)) - 130; cloud(bx, cx, 70+((i*57)%80), 0.8+((i*13)%4)/10); }
+    const gy = H*0.82;
+    bx.fillStyle='#7fbf86'; for(let hx=-100; hx<W+200; hx+=340){ bx.beginPath(); bx.moveTo(hx,gy); bx.quadraticCurveTo(hx+170,gy-120,hx+340,gy); bx.fill(); }
+    bx.fillStyle='#6ab04c'; bx.fillRect(0,gy,W,H-gy);
+    bx.fillStyle='#5fb04a'; bx.fillRect(0,gy,W,7);
+    // bushes + a couple trees
+    bx.fillStyle='#4e9a3c'; for(let bxp=40; bxp<W; bxp+=200){ bx.beginPath(); bx.arc(bxp,gy,16,Math.PI,0); bx.arc(bxp+18,gy,21,Math.PI,0); bx.arc(bxp+37,gy,15,Math.PI,0); bx.closePath(); bx.fill(); }
+    for(let tx=170; tx<W; tx+=520){ bx.fillStyle='#7a5230'; bx.fillRect(tx-5,gy-46,10,46);
+      bx.fillStyle='#4e9a3c'; bx.beginPath(); bx.arc(tx,gy-58,25,0,7); bx.arc(tx-19,gy-48,17,0,7); bx.arc(tx+19,gy-48,17,0,7); bx.fill(); }
+    // the player's character idling on the main menu only
+    if(cur==='main'){ const c=SR.cosmetics(); drawBean(bx, W*0.5, gy+2, Math.min(W,H)/460*1.6, c.color, c.hat); }
+  }
+
+  /* ---------------- screen routing ---------------- */
+  let cur = 'main';
+  function show(name){
+    cur = name;
+    for (const s of ['main','set','cos']) $('scr-'+s).classList.toggle('hidden', s!==name);
+    if (name==='set') syncSettings();
+    if (name==='cos') { renderCosmetics(); }
+  }
+
+  /* ---------------- settings ---------------- */
+  function syncSettings(){
+    const s = SR.settings();
+    $('setMaster').value = Math.round(s.master*100);
+    $('setMusic').classList.toggle('on', s.music);
+    $('setSfx').classList.toggle('on', s.sfx);
+    $('setFull').classList.toggle('on', !!document.fullscreenElement);
+  }
+  $('setMaster').addEventListener('input', e=>{ SR.settings().master = e.target.value/100; SR.persist(); });
+  $('setMusic').onclick = ()=>{ const s=SR.settings(); s.music=!s.music; SR.persist(); syncSettings(); };
+  $('setSfx').onclick   = ()=>{ const s=SR.settings(); s.sfx=!s.sfx; SR.persist(); syncSettings(); };
+  $('setFull').onclick  = ()=>{ if(document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(()=>{}); setTimeout(syncSettings,120); };
+  $('setReset').onclick = ()=>{ if(confirm('Reset all progress, cosmetics and settings?')){ SR.reset(); refreshCoins(); syncSettings(); } };
+
+  /* ---------------- cosmetics ---------------- */
+  const cosCv = $('cosPreview'), cosCtx = cosCv.getContext('2d');
+  function renderCosmetics(){
+    refreshCoins();
+    const cos = SR.cosmetics();
+    // colour grid
+    const cg = $('colorGrid'); cg.innerHTML='';
+    for (const c of SR.COLORS){
+      const owned = SR.ownsColor(c.id), sel = cos.color===c.id;
+      const cell = document.createElement('div'); cell.className='cell';
+      const sw = document.createElement('div');
+      sw.className = 'swatch' + (sel?' sel':'') + (owned?'':' locked');
+      sw.style.background = c.id; sw.title = c.name + (owned?'':' — '+c.cost);
+      if(!owned){ const p=document.createElement('div'); p.className='price'; p.textContent='💰'+c.cost; cell.appendChild(sw); cell.appendChild(p); }
+      else cell.appendChild(sw);
+      sw.onclick = ()=>{
+        if(SR.ownsColor(c.id)){ SR.setColor(c.id); }
+        else if(SR.buyColor(c.id)){ SR.setColor(c.id); }
+        else { flash(sw); }
+        renderCosmetics();
+      };
+      cg.appendChild(cell);
+    }
+    // hat grid
+    const hg = $('hatGrid'); hg.innerHTML='';
+    for (const hn of SR.HATS){
+      const owned = SR.ownsHat(hn.id), sel = cos.hat===hn.id;
+      const cell = document.createElement('div'); cell.className='cell';
+      const hp = document.createElement('div');
+      hp.className = 'hatpick' + (sel?' sel':'') + (owned?'':' locked');
+      hp.textContent = hn.icon || '∅'; hp.title = hn.name + (owned?'':' — '+hn.cost);
+      if(!owned){ const p=document.createElement('div'); p.className='price'; p.textContent='💰'+hn.cost; cell.appendChild(hp); cell.appendChild(p); }
+      else cell.appendChild(hp);
+      hp.onclick = ()=>{
+        if(SR.ownsHat(hn.id)){ SR.setHat(hn.id); }
+        else if(SR.buyHat(hn.id)){ SR.setHat(hn.id); }
+        else { flash(hp); }
+        renderCosmetics();
+      };
+      hg.appendChild(cell);
+    }
+  }
+  function flash(el){ el.animate([{filter:'brightness(2.2)'},{filter:'brightness(1)'}],{duration:280}); }
+  function drawCosPreview(){
+    const g = cosCtx.createLinearGradient(0,0,0,240); g.addColorStop(0,'#bfe9ff'); g.addColorStop(1,'#eafaff');
+    cosCtx.fillStyle=g; cosCtx.fillRect(0,0,220,240);
+    cosCtx.fillStyle='#6ab04c'; cosCtx.fillRect(0,205,220,35); cosCtx.fillStyle='#5fb04a'; cosCtx.fillRect(0,205,220,6);
+    const c = SR.cosmetics(); drawBean(cosCtx, 110, 208, 1.7, c.color, c.hat);
+  }
+
+  function refreshCoins(){ const n = SR.save().coins|0; $('coinBal').textContent=n; $('coinBal2').textContent=n; }
+
+  /* ---------------- actions ---------------- */
+  document.querySelectorAll('[data-act]').forEach(b=> b.onclick = ()=>{
+    const a = b.dataset.act;
+    if(a==='sp') location.href='coins.html';
+    else if(a==='mp') location.href='race.html';
+    else if(a==='cos') show('cos');
+    else if(a==='set') show('set');
+    else if(a==='menu') show('main');
+    else if(a==='quit'){ if(window.close) window.close(); /* desktop build will hook this */ }
+  });
+  // Quit only makes sense in the desktop build; hide it in a plain browser tab
+  if(!navigator.userAgent.includes('Electron') && !window.__TAURI__) $('quitBtn').style.display='none';
+
+  refreshCoins();
+
+  /* ---------------- main loop ---------------- */
+  function loop(){ t++; backdrop(); if(cur==='cos') drawCosPreview(); requestAnimationFrame(loop); }
+  loop();
+  </script>
 </body>
 </html>
