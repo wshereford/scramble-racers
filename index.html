@@ -78,6 +78,19 @@
   .price { position:absolute; bottom:-16px; left:0; right:0; font-size:.66rem; color:var(--gold); text-align:center; }
   .cell { position:relative; margin-bottom:16px; }
 
+  /* achievements */
+  .ach-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:12px; }
+  .ach-card { display:flex; gap:11px; align-items:center; text-align:left; background:#141d30;
+    border:1px solid rgba(255,255,255,.07); border-radius:12px; padding:11px 13px; }
+  .ach-card.done { border-color:#ffd24d55; background:#1c2740; }
+  .ach-card.locked { opacity:.55; }
+  .ach-ic { font-size:26px; width:38px; text-align:center; filter:grayscale(1); }
+  .ach-card.done .ach-ic { filter:none; }
+  .ach-t { font-weight:700; font-size:.98rem; }
+  .ach-d { color:#9fb0c8; font-size:.78rem; }
+  .ach-r { margin-left:auto; color:#ffd24d; font-weight:700; font-size:.82rem; white-space:nowrap; }
+  .ach-card.done .ach-r { color:#7CFFA0; }
+
   .back { margin-top: 20px; }
   .credit { position: fixed; bottom: 8px; right: 12px; z-index:1; color:#5a6a86; font-size:.72rem; }
 </style>
@@ -91,9 +104,11 @@
       <h1>Scramble Racers<span class="sub2">race · scramble · repeat</span></h1>
       <div class="coins">💰 <span id="coinBal">0</span></div>
       <div class="menu">
-        <button class="btn" data-act="sp">▶ Single Player</button>
+        <button class="btn" data-act="camp">🗺️ Campaign</button>
+        <button class="btn alt" data-act="sp">⚡ Quick Race</button>
         <button class="btn alt" data-act="mp">🌐 Multiplayer</button>
         <button class="btn alt" data-act="cos">🎨 Cosmetics</button>
+        <button class="btn alt" data-act="ach">🏅 Achievements</button>
         <button class="btn alt" data-act="set">⚙ Settings</button>
         <button class="btn ghost small" data-act="quit" id="quitBtn">✕ Quit</button>
       </div>
@@ -142,6 +157,13 @@
           </div>
         </div>
       </div>
+      <div class="back"><button class="btn small" data-act="menu">← Back</button></div>
+    </div>
+
+    <!-- ===== ACHIEVEMENTS ===== -->
+    <div id="scr-ach" class="screen hidden">
+      <h2>🏅 Achievements <span style="font-size:1rem;color:#8595b0">(<span id="achCount">0</span>/<span id="achTotal">0</span>)</span></h2>
+      <div class="panel"><div class="ach-grid" id="achGrid"></div></div>
       <div class="back"><button class="btn small" data-act="menu">← Back</button></div>
     </div>
 
@@ -212,9 +234,25 @@
   let cur = 'main';
   function show(name){
     cur = name;
-    for (const s of ['main','set','cos']) $('scr-'+s).classList.toggle('hidden', s!==name);
+    for (const s of ['main','set','cos','ach']) $('scr-'+s).classList.toggle('hidden', s!==name);
     if (name==='set') syncSettings();
-    if (name==='cos') { renderCosmetics(); }
+    if (name==='cos') renderCosmetics();
+    if (name==='ach') renderAchievements();
+  }
+
+  function renderAchievements(){
+    const grid = $('achGrid'); grid.innerHTML='';
+    let done=0;
+    for (const a of SR.ACHIEVEMENTS){
+      const got = SR.hasAch(a.id); if(got) done++;
+      const el = document.createElement('div');
+      el.className = 'ach-card ' + (got?'done':'locked');
+      el.innerHTML = `<div class="ach-ic">${a.icon}</div>`+
+        `<div><div class="ach-t">${a.name}</div><div class="ach-d">${a.desc}</div></div>`+
+        `<div class="ach-r">${got?'✓ ':'💰'}${a.reward}</div>`;
+      grid.appendChild(el);
+    }
+    $('achCount').textContent = done; $('achTotal').textContent = SR.ACHIEVEMENTS.length;
   }
 
   /* ---------------- settings ---------------- */
@@ -286,9 +324,11 @@
   /* ---------------- actions ---------------- */
   document.querySelectorAll('[data-act]').forEach(b=> b.onclick = ()=>{
     const a = b.dataset.act;
-    if(a==='sp') location.href='coins.html';
+    if(a==='camp') location.href='campaign.html';
+    else if(a==='sp') location.href='coins.html';
     else if(a==='mp') location.href='race.html';
     else if(a==='cos') show('cos');
+    else if(a==='ach') show('ach');
     else if(a==='set') show('set');
     else if(a==='menu') show('main');
     else if(a==='quit'){ if(window.close) window.close(); /* desktop build will hook this */ }

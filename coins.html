@@ -145,6 +145,9 @@ const NUM_SECTIONS = 5;
 const SEC_W = TRACK_LEN / NUM_SECTIONS;
 const FINISH_X = TRACK_LEN - 220;
 const RACES = 4;               // last one is double points
+let myRaceWins = 0;            // races you (player 0) won this tournament — for achievements
+// CAMPAIGN LEVEL MODE: launched from campaign.html?level=<id> → run ONE fixed race with an objective
+const CAMPAIGN_LEVEL = (window.SR ? SR.level(new URLSearchParams(location.search).get('level') || '') : null) || null;
 const PLAYER_W = 26, PLAYER_H = 34;
 
 // base physics — a touch slower & floatier so positioning/timing matters more than holding →
@@ -552,6 +555,7 @@ function resetMatch(){
   sections = new Array(NUM_SECTIONS);
   for(let i=0;i<NUM_SECTIONS;i++) setTheme(i, START_THEMES[i % START_THEMES.length]);
   raceNum = 0;
+  myRaceWins = 0;
 }
 
 //////////////////// TRACK BUILD ////////////////////
@@ -1493,7 +1497,44 @@ function endRace(){
     p.gained = ptsTable[i]*mult; p.points += p.gained;
     p.coinGained = COIN_PAYOUT[i]; p.coins += p.coinGained;
   });
+  if(CAMPAIGN_LEVEL){ finishCampaignLevel(); return; }   // campaign level → objective screen, not the tournament flow
+  if(lastFinishOrder[0] && lastFinishOrder[0].idx===0) myRaceWins++;   // you won this race
   showResults(mult);
+}
+
+// ---- CAMPAIGN LEVEL MODE ----
+function startCampaignLevel(){
+  const L = CAMPAIGN_LEVEL;
+  for(let i=0;i<NUM_SECTIONS;i++) setTheme(i, L.theme);   // whole track uses the level's theme
+  raceNum = 0; buildBaseLayout(); startRace();            // one race, no draft/shop
+}
+function finishCampaignLevel(){
+  const L = CAMPAIGN_LEVEL;
+  const me = players.find(p=>p.idx===0);
+  const myPlace = lastFinishOrder.findIndex(p=>p.idx===0)+1;
+  let passed = false;
+  if(L.obj.type==='place') passed = myPlace>0 && myPlace<=L.obj.n;
+  else if(L.obj.type==='coins') passed = (me.raceCoins|0) >= L.obj.n;
+  let reward = 0;
+  if(passed && window.SR) reward = SR.clearLevel(L.id);
+  if(passed) SFX.win(); else SFX.finish();
+  const tbl=$('finalTable'); tbl.innerHTML='';
+  (lastFinishOrder.length?lastFinishOrder:players).forEach((p,i)=>{ const tr=document.createElement('tr'); if(p.idx===0) tr.className='you';
+    tr.innerHTML=`<td>${['🥇','🥈','🥉','4th'][i]||''}</td><td><span class="swatch" style="background:${p.color}"></span>${p.name}</td>`; tbl.appendChild(tr); });
+  const objLine = L.obj.type==='place'
+    ? `Objective: finish ${L.obj.n===1?'1st':'top '+L.obj.n} — you placed <b>${['1st','2nd','3rd','4th'][myPlace-1]||'?'}</b>`
+    : `Objective: collect ${L.obj.n} coins — you grabbed <b>${me.raceCoins|0}</b>`;
+  $('finalTitle').textContent = passed ? '⭐ Level Cleared!' : '💥 Try Again';
+  $('finalFlavor').innerHTML = `<b>Level ${L.id} — ${L.name}</b><br><br>${objLine}<br>`+
+    (passed ? `<div style="color:#7CFFA0;font-weight:700;margin-top:8px">✓ Objective complete!${reward?` &nbsp;+${reward} 💰`:''}</div>`
+            : `<div style="color:#ff8a8a;font-weight:700;margin-top:8px">Objective failed — give it another go.</div>`);
+  const nb = window.SR ? SR.nextLevel(L.id) : null;
+  const box = $('finalRestart').parentElement;
+  box.innerHTML =
+    `<button class="btn" onclick="location.href='campaign.html'">🗺️ Campaign</button> `+
+    `<button class="btn" onclick="location.href='coins.html?level=${L.id}'">↻ Retry</button> `+
+    (passed && nb ? `<button class="btn" onclick="location.href='coins.html?level=${nb.id}'">Next ▶</button>` : '');
+  setState('final');
 }
 
 //////////////////// RENDER ////////////////////
@@ -2346,12 +2387,20 @@ function showFinal(){
   });
   const meRank = sorted.findIndex(p=>p.idx===0)+1;
   if(meRank===1) SFX.win(); else SFX.finish();
-  // bank the coins you finished the tournament with into your account (for cosmetics)
-  const me = players.find(p=>p.idx===0); const earned = Math.max(0, me.coins|0);
-  if(window.SR && earned>0) SR.addCoins(earned);
+  // ACCOUNT coins are earned by how you FINISH (+ achievements) — not leftover shop coins
+  let earned = 0;
+  if(window.SR){
+    earned = SR.PLACEMENT_COINS[meRank-1] || 0;
+    SR.addCoins(earned);
+    SR.unlock('first_finish');
+    if(myRaceWins>=1) SR.unlock('first_win');
+    if(meRank===1) SR.unlock('tourney_win');
+    if(meRank<=3) SR.unlock('podium');
+    if(myRaceWins>=RACES) SR.unlock('flawless');
+  }
   $('finalTitle').textContent = meRank===1 ? '🏆 You win the tournament!' : `Tournament over — you placed ${['1st','2nd','3rd','4th'][meRank-1]}`;
   $('finalFlavor').innerHTML =
-    (window.SR && earned>0 ? `<div style="color:#ffd24d;font-weight:700;margin-bottom:10px">💰 +${earned} coins added to your account (spend them on cosmetics!)</div>` : '')+
+    (window.SR ? `<div style="color:#ffd24d;font-weight:700;margin-bottom:10px">💰 +${earned} coins for finishing ${['1st','2nd','3rd','4th'][meRank-1]}${myRaceWins>0?` · won ${myRaceWins}/${RACES} races`:''}</div>` : '')+
     `The final track ended up themed like this:<br><br>`+
     sections.map((s,i)=>`<b>S${i+1}:</b> ${secTheme(i).icon} ${secTheme(i).name}`).join('<br>');
   setState('final');
@@ -2393,8 +2442,8 @@ $('draftStart').addEventListener('mousedown',()=>{ initAudio(); resumeAudio(); }
 
 // boot
 resetMatch();
-buildBaseLayout();
-showDraft();
+if(CAMPAIGN_LEVEL){ startCampaignLevel(); }   // campaign.html?level=id → one objective race
+else { buildBaseLayout(); showDraft(); }
 loop();
 
 // ============ TRAILER / ATTRACT MODE — open  coins.html?trailer  to use ============

@@ -182,6 +182,7 @@ const NUM_SECTIONS = 5;
 const SEC_W = TRACK_LEN / NUM_SECTIONS;
 const FINISH_X = TRACK_LEN - 220;
 const RACES = 4;               // last one is double points
+let myRaceWins = 0;            // races you won this tournament — for achievements
 const PLAYER_W = 26, PLAYER_H = 34;
 
 // base physics — a touch slower & floatier so positioning/timing matters more than holding →
@@ -2474,12 +2475,20 @@ function showFinal(){
   });
   const meRank = sorted.findIndex(p=>isMe(p))+1;
   if(meRank===1) SFX.win(); else SFX.finish();
-  // bank your coins into your account (for cosmetics)
-  const me = players.find(p=>isMe(p)); const earned = me ? Math.max(0, me.coins|0) : 0;
-  if(window.SR && earned>0) SR.addCoins(earned);
+  // ACCOUNT coins are earned by how you FINISH (+ achievements)
+  let earned = 0;
+  if(window.SR){
+    earned = SR.PLACEMENT_COINS[meRank-1] || 0;
+    SR.addCoins(earned);
+    SR.unlock('first_finish');
+    if(myRaceWins>=1) SR.unlock('first_win');
+    if(meRank===1){ SR.unlock('tourney_win'); SR.unlock('online_win'); }
+    if(meRank<=3) SR.unlock('podium');
+    if(myRaceWins>=RACES) SR.unlock('flawless');
+  }
   $('finalTitle').textContent = meRank===1 ? '🏆 You win the tournament!' : `Tournament over — you placed ${['1st','2nd','3rd','4th'][meRank-1]}`;
   $('finalFlavor').innerHTML =
-    (window.SR && earned>0 ? `<div style="color:#ffd24d;font-weight:700;margin-bottom:10px">💰 +${earned} coins added to your account</div>` : '')+
+    (window.SR ? `<div style="color:#ffd24d;font-weight:700;margin-bottom:10px">💰 +${earned} coins for finishing ${['1st','2nd','3rd','4th'][meRank-1]}${myRaceWins>0?` · won ${myRaceWins}/${RACES} races`:''}</div>` : '')+
     `The final track ended up themed like this:<br><br>`+
     sections.map((s,i)=>`<b>S${i+1}:</b> ${secTheme(i).icon} ${secTheme(i).name}`).join('<br>');
   setState('final');
@@ -2622,6 +2631,8 @@ function localP(){ return MP.on ? (players[MP.mySlot]||players[0]) : players[0];
 // build the shared track + the players array, and start a synced race
 function mpStartRace(){
   clearInterval(MP.shopTimer); MP.shopTimer=null;   // leaving the shop phase
+  if(raceNum===0) myRaceWins=0;                     // new tournament → reset the win counter
+
   // clear my shop-readiness for the WHOLE race, so leftover true flags can't make the host skip the next shop
   try{ MP.ref.child('players/'+MP.myId+'/shopReady').set(false); }catch(e){}
   // Cancel onDisconnect so brief reconnects during race don't remove player from lobby
@@ -2670,6 +2681,7 @@ function mpResults(){
     p.gained = ptsTable[i]*mult; p.points += p.gained;
     p.coinGained = COIN_PAYOUT[i]; p.coins += p.coinGained;
   });
+  if(lastFinishOrder[0] && isMe(lastFinishOrder[0])) myRaceWins++;   // you won this race
   if(raceNum < RACES-1) enterShop();   // 30s shop with live standings + ready-up
   else showFinal();
 }

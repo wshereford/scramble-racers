@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+<title>Scramble Racers — Campaign</title>
+<script src="shared.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root { --gold:#ffd24d; }
+  html, body { height: 100%; }
+  body { background: linear-gradient(#0e1320,#141d30); color: #e8edf5;
+    font-family: "Segoe UI", system-ui, sans-serif; user-select: none; -webkit-user-select:none;
+    min-height:100%; padding: 58px 16px 40px; }
+  .menubtn { position: fixed; top: 10px; left: 12px; z-index: 50; text-decoration: none;
+    background: rgba(10,16,30,.72); color: #cfe0ff; font-weight: 700; font-size: 13px;
+    padding: 7px 13px; border-radius: 10px; border: 1px solid rgba(255,255,255,.12); }
+  .coins { position: fixed; top: 10px; right: 12px; z-index:50; background: rgba(10,16,30,.72);
+    color: var(--gold); font-weight: 800; padding: 7px 14px; border-radius: 99px; border:1px solid rgba(255,255,255,.1); }
+  .wrap { max-width: 900px; margin: 0 auto; }
+  h1 { text-align:center; font-size: 2.2rem; font-weight: 900; letter-spacing:1px; text-transform:uppercase;
+       color: var(--gold); text-shadow: 0 3px 0 #b5851f; margin-bottom: 6px; }
+  .prog { text-align:center; color:#8595b0; margin-bottom: 22px; font-size:.95rem; }
+  .world { margin-bottom: 28px; }
+  .world-head { display:flex; align-items:center; gap:10px; margin-bottom:6px; }
+  .world-head .wi { font-size: 1.6rem; }
+  .world-head h2 { font-size: 1.35rem; font-weight: 800; }
+  .world-head .lock { margin-left:auto; color:#8595b0; font-size:.85rem; }
+  .world-story { color:#9fb0c8; font-size:.9rem; margin-bottom: 12px; line-height:1.4; }
+  .levels { display:grid; grid-template-columns: repeat(auto-fill,minmax(200px,1fr)); gap:12px; }
+  .lvl { background:#182238; border:1px solid rgba(255,255,255,.08); border-radius:14px; padding:14px;
+    cursor:pointer; transition:transform .08s, border-color .1s; position:relative; }
+  .lvl:hover { transform:translateY(-2px); border-color:#ffd24d55; }
+  .lvl.locked { opacity:.5; cursor:not-allowed; }
+  .lvl.cleared { border-color:#7CFFA0aa; }
+  .lvl .id { font-size:.72rem; color:#7fd1ff; font-weight:700; letter-spacing:1px; }
+  .lvl .nm { font-size:1.1rem; font-weight:800; margin:2px 0 6px; }
+  .lvl .obj { font-size:.82rem; color:#bfe49a; }
+  .lvl .badge { position:absolute; top:10px; right:12px; font-size:1.2rem; }
+  .worldlock { background:#141d30; border:1px dashed rgba(255,255,255,.12); border-radius:14px; padding:20px; text-align:center; color:#8595b0; }
+</style>
+</head>
+<body>
+  <a href="index.html" class="menubtn">← Menu</a>
+  <div class="coins">💰 <span id="coinBal">0</span></div>
+  <div class="wrap">
+    <h1>🗺️ Campaign</h1>
+    <div class="prog" id="prog"></div>
+    <div id="worlds"></div>
+  </div>
+
+  <script>
+  const $ = id => document.getElementById(id);
+  const objText = o => o.type==='place' ? (o.n===1?'🥇 Finish 1st':`🏅 Finish top ${o.n}`) : `💰 Collect ${o.n} coins`;
+
+  function render(){
+    $('coinBal').textContent = SR.save().coins|0;
+    const cleared = SR.CAMPAIGN.filter(l=>SR.clearedLevel(l.id)).length;
+    $('prog').textContent = `${cleared} / ${SR.CAMPAIGN.length} levels cleared`;
+    const host = $('worlds'); host.innerHTML='';
+    for (const w of SR.WORLDS){
+      const levels = SR.CAMPAIGN.filter(l=>l.world===w.n);
+      const prevWorldDone = w.n===1 ? true : SR.worldDone(w.n-1);
+      const wrap = document.createElement('div'); wrap.className='world';
+      const cin = levels.filter(l=>SR.clearedLevel(l.id)).length;
+      wrap.innerHTML = `<div class="world-head"><span class="wi">${w.icon}</span><h2>World ${w.n} — ${w.name}</h2>`+
+        `<span class="lock">${cin}/${levels.length}</span></div>`+
+        `<div class="world-story">${w.story}</div>`;
+      if (!prevWorldDone){
+        const lk=document.createElement('div'); lk.className='worldlock';
+        lk.textContent = `🔒 Clear World ${w.n-1} to unlock ${w.name}.`;
+        wrap.appendChild(lk);
+      } else {
+        const grid=document.createElement('div'); grid.className='levels';
+        for (const l of levels){
+          const unlocked = SR.levelUnlocked(l.id), done = SR.clearedLevel(l.id);
+          const el=document.createElement('div');
+          el.className='lvl'+(done?' cleared':'')+(unlocked?'':' locked');
+          el.innerHTML = `<div class="badge">${done?'⭐':(unlocked?'':'🔒')}</div>`+
+            `<div class="id">LEVEL ${l.id}</div><div class="nm">${l.name}</div>`+
+            `<div class="obj">${objText(l.obj)}</div>`;
+          if (unlocked) el.onclick = ()=>{ location.href='coins.html?level='+encodeURIComponent(l.id); };
+          grid.appendChild(el);
+        }
+        wrap.appendChild(grid);
+      }
+      host.appendChild(wrap);
+    }
+  }
+  render();
+  </script>
+</body>
+</html>
