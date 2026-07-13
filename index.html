@@ -204,8 +204,8 @@
     bx.fillStyle='#4e9a3c'; for(let bxp=40; bxp<W; bxp+=200){ bx.beginPath(); bx.arc(bxp,gy,16,Math.PI,0); bx.arc(bxp+18,gy,21,Math.PI,0); bx.arc(bxp+37,gy,15,Math.PI,0); bx.closePath(); bx.fill(); }
     for(let tx=170; tx<W; tx+=520){ bx.fillStyle='#7a5230'; bx.fillRect(tx-5,gy-46,10,46);
       bx.fillStyle='#4e9a3c'; bx.beginPath(); bx.arc(tx,gy-58,25,0,7); bx.arc(tx-19,gy-48,17,0,7); bx.arc(tx+19,gy-48,17,0,7); bx.fill(); }
-    // the player's character idling on the main menu only
-    if(cur==='main'){ const c=SR.cosmetics(); drawBean(bx, W*0.5, gy+2, Math.min(W,H)/460*1.6, c.color, c.hat); }
+    // the player's character idling off to the side on the main menu (clear of the buttons)
+    if(cur==='main' && W>720){ const c=SR.cosmetics(); drawBean(bx, W*0.86, gy+2, Math.min(W,H)/460*1.7, c.color, c.hat); }
   }
 
   /* ---------------- screen routing ---------------- */
